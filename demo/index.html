@@ -3,41 +3,13 @@
 <head>
     <meta charset="UTF-8" />
     <title>title</title>
+    <script type="module" src="js/app.js"></script>
     <script>
-        function Clip(options) {
-            // ...
-        }
-
-
-        const clips = {
-            _handlers: {},
-
-            define: function(name, prototype) {
-                this._handlers[name] = prototype;
-            },
-
-            create: function(name, options) {
-                const handler = this._handlers[name];
-                if (!handler) {
-                    return null;
-                }
-                const clip = handler;
-            },
-
-        };
-    </script>
-    <script>
-        const viewport = document.getElementById('viewport');
-
-        const c1 = clips.create('clip1', {});
-        c1.appendTo(viewport);
-
-        const c2 = clips.create('clip2', {});
-        c2.appendTo(viewport);
+        
         
     </script>
 </head>
 <body>
-    <div id="viewport"></div>    
+    <div id="page"></div>    
 </body>
 </html>

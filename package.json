@@ -1,0 +1,23 @@
+{
+  "name": "clips",
+  "version": "1.0.0",
+  "description": "Clips.",
+  "homepage": "https://github.com/terangel/clips#readme",
+  "bugs": {
+    "url": "https://github.com/terangel/clips/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/terangel/clips.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
