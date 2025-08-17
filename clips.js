@@ -51,7 +51,7 @@ Clip.prototype.addEventListener = Clip.prototype.on = function(name, listener) {
 
 Clip.prototype.removeEventListener = Clip.prototype.off = function(name, listener) {};
 
-Clip.prototype.fire = Clip.prototype.dispatchEvent = function(event, spread) {
+Clip.prototype.fire = Clip.prototype.dispatchEvent = function(event, spread) {};
 
 
 
@@ -62,7 +62,13 @@ const _handlers = {};
 
 const _templates = {};
 
+let _base = '/clips';
+
 const clips = {
+
+    base: function(path) {
+        _base = path; 
+    },
 
     /**
      * ...
@@ -85,7 +91,7 @@ const clips = {
 
     create: async function(name, options) {
         if (!_handlers[name]) {
-            await import(`clips/${name}/handler.js`);
+            await import(`${_base}/${name}/handler.js`.toString());
         }
         const handler = _handlers[name];
         if (!handler) {
@@ -93,6 +99,10 @@ const clips = {
         }
         return new handler(options);
     },
+
+    setBasePath: function(path) {
+
+    }
 
 };
 
