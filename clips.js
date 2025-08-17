@@ -1,52 +1,97 @@
 function Clip(options) {
-    // ...
+    this.root = null;
+    this.parentClip = options.parentClip || null;
+    this.childClips = [];
+    this.loadTime = 0;
+    this.eventListeners = {};
+    this.create(options);
 }
 
-const _clipHandlers = {};
+Clip.prototype.create = function(options) {};
+
+Clip.prototype.include = function(options) {};
+
+Clip.prototype.load = function(options) {};
+
+Clip.prototype.render = function(options) {};
+
+Clip.prototype.ready = function(options) {};
+
+Clip.prototype.update = function(options) {};
+
+Clip.prototype.reload = function(options) {};
+
+Clip.prototype.clear = function(options) {};
+
+Clip.prototype.toggle = function(options) {};
+
+Clip.prototype.isVisible = function(options) {};
+
+Clip.prototype.remove = function(options) {};
+
+Clip.prototype.destroy = function(options) {};
+
+Clip.prototype.appendClip = function(options) {};
+
+Clip.prototype.removeClip = function(options) {};
+
+Clip.prototype.clearAll = function(options) {};
+
+Clip.prototype.destroy = function(options) {};
+
+
+// Scroll
+Clip.prototype.saveScroll = function() {};
+
+Clip.prototype.restoreScroll = function() {};
+
+// Events
+
+Clip.prototype.addEventListener = Clip.prototype.on = function(name, listener) {};
+
+Clip.prototype.removeEventListener = Clip.prototype.off = function(name, listener) {};
+
+Clip.prototype.fire = Clip.prototype.dispatchEvent = function(event, spread) {
+
+
+
+
+// ---------------------------------------------------------------------------------------------------
+
+const _handlers = {};
+
+const _templates = {};
 
 const clips = {
 
+    /**
+     * ...
+     */
     define: function(name, base, proto) {
         if (typeof base === 'object') {
             proto = base;
             base = null;
         }
-        let B = base ? _clipHandlers[base] : View,
-            V = function(settings) {
-                B.call(this, settings);
+        const B = base ? _clipHandlers[base] : Clip,
+            C = function(options) {
+                B.call(this, options);
             };
-        V.prototype = Object.assign(Object.create(B.prototype), proto);
-        V.prototype.constructor = V;
-
-        /**
-         * Reference to the base view.
-         * @type {function}
-         * @memberof View#
-         */
-        V.prototype.__base = B;
-        // TODO: Ojo con usar esta referencia ya que si se usa en una clase y en una clase derivada no se sobrescribe
-        //  podemos tener una llamada circular ya que la referencia a la base es ella misma.
-
-        /**
-         * The name of the view.
-         * @type {string}.
-         * @memberof View#
-         */
-        V.prototype.__name = name;
-
-        // Se devuelve la función constructora de la vista.
-        return viewHandlers[name] = V;
+        C.prototype = Object.assign(Object.create(B.prototype), proto);
+        C.prototype.constructor = C;
+        C.prototype.__base = B;
+        C.prototype.__name = name;
+        return _handlers[name] = C;
     },
 
     create: async function(name, options) {
-        if (!this._handlers[name]) {
+        if (!_handlers[name]) {
             await import(`clips/${name}/handler.js`);
         }
-        const handler = this._handlers[name];
+        const handler = _handlers[name];
         if (!handler) {
             return null;
         }
-        const clip = handler;
+        return new handler(options);
     },
 
 };
