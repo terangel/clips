@@ -74,11 +74,33 @@ const clips = {
      * ...
      */
     define: function(name, base, proto) {
-        if (typeof base === 'object') {
+        if (typeof name !== 'string' || !(name = name.trim())) {
+            throw new TypeError(`Invalid clip name, non-empty string required.`);
+        }
+        if (_handlers[name]) {
+            throw new Error(`Duplicate clip: ${name}`);
+        }
+
+        if (typeof base === 'object' && base !== null) {
             proto = base;
             base = null;
+        } else if (typeof base === 'string') {
+            base = base.trim();
+            if (!base) {
+                throw new TypeError(`Invalid base name, non-empty string required.`);
+            }
+            if (!_handlers[base]) {
+                throw new ReferenceError(`Base clip "${base}" not defined.`);
+            }
+        } else {
+            throw new TypeError('Invalid base, string or object required.');
         }
-        const B = base ? _clipHandlers[base] : Clip,
+
+        if (proto === null || typeof proto !== 'object' || Object.getPrototypeOf(proto) !== Object.prototype) {
+            throw new TypeError('Invalid proto object, plain object required.');
+        }
+
+        const B = base ? _handlers[base] : Clip,
             C = function(options) {
                 B.call(this, options);
             };
