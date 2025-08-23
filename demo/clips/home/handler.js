@@ -2,23 +2,10 @@ import clips from '../../../clips.js';
 
 clips.define('home', {
 
-    create: function(options) {
-
-
-    },
-
-    load: function(options) {
-
-
-    },
-
-    ready: function(options) {
-
-
-    },
-
     render: function(options) {
-
+        const template = document.createElement('template');
+        template.innerHTML = '<div class="home-clip">HOME CLIP</div>';
+        return template.content;
     }
 
 

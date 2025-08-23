@@ -1,4 +1,15 @@
-function Clip(options) {
+/**
+ * @typedef {Object} ClipOptions
+ * @property {Clip} [parentClip=null] Referencia al Clip padre.
+ * ...
+ */
+
+/**
+ * Tipo Clip.
+ * @param {ClipOptions} [options] Opciones de creación de clips.
+ * @constructor
+ */
+function Clip(options = {}) {
     this.root = null;
     this.parentClip = options.parentClip || null;
     this.childClips = [];
@@ -7,13 +18,33 @@ function Clip(options) {
     this.create(options);
 }
 
-Clip.prototype.create = function(options) {};
+/**
+ * Función de creación de nuevas instancias.
+ * @param {ClipOptions} options Opciones de creación.
+ */
+Clip.prototype.create = function(options = {}) {};
 
-Clip.prototype.include = function(options) {};
+/**
+ * Función para incluir el clip en un elemento contenedor.
+ * @param {HTMLElement} target Elemento contenedor donde incluir el clip.
+ * @param {Object} options Opciones de inclusión.
+ */
+Clip.prototype.include = function(target, options = {}) {
+    target.append(this.render(options));
+};
 
+
+/**
+ * ...
+ */
 Clip.prototype.load = function(options) {};
 
-Clip.prototype.render = function(options) {};
+/**
+ * ...
+ */
+Clip.prototype.render = function(options) {
+    // TODO: Implementar
+};
 
 Clip.prototype.ready = function(options) {};
 
@@ -46,7 +77,6 @@ Clip.prototype.saveScroll = function() {};
 Clip.prototype.restoreScroll = function() {};
 
 // Events
-
 Clip.prototype.addEventListener = Clip.prototype.on = function(name, listener) {};
 
 Clip.prototype.removeEventListener = Clip.prototype.off = function(name, listener) {};
@@ -57,73 +87,178 @@ Clip.prototype.fire = Clip.prototype.dispatchEvent = function(event, spread) {};
 
 
 // ---------------------------------------------------------------------------------------------------
+/**
+ * Formato del nombre de los clips (path-like), uno o varios segmentos separados 
+ * por "/", cada segmento: [A-Za-z0-9_-]+
+ * @type {RegExp}
+ * @constant
+ */ 
+const CLIP_NAME_RE = /^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/;
 
-const _handlers = {};
+/**
+ * Longitud máxima permitida para los nombres de clip.
+ * @type {number}
+ * @constant
+ */
+const CLIP_NAME_MAX_LENGTH = 256;
 
-const _templates = {};
+/**
+ * Ruta base de donde cargar los clips.
+ * @type {string}
+ */
+let _basePath = '/clips';
 
-let _base = '/clips';
+/**
+ * Manejadores de Clips definidos.
+ * @type {Object.<string, Clip>}
+ */
+const _handlers = Object.create(null);
 
-const clips = {
+/**
+ * Funciones de plantilla añadidas.
+ * @type {Object.<string, (...) => HTMLElement}
+ */
+const _templates = Object.create(null);
 
-    base: function(path) {
-        _base = path; 
-    },
-
+/**
+ * Librería clips.
+ * @namespace
+ */
+const clips = {    
+    
     /**
-     * ...
+     * Define un nuevo tipo de clip.
+     * @param {string} name Nombre del clip (único).
+     * @param {string|Object} [base] Nombre del clip base o prototipo del nuevo clip.
+     * @param {Object} proto Prototipo del clip.
+     * @return {new (options: ClipOptions) => Clip} Constructor del nuevo tipo de clip.
      */
     define: function(name, base, proto) {
-        if (typeof name !== 'string' || !(name = name.trim())) {
-            throw new TypeError(`Invalid clip name, non-empty string required.`);
+        // Nombre del clip.
+        if (typeof name !== 'string') {
+            throw new TypeError('Invalid clip name: string required.');
+        }
+        name = name.trim();
+        if (!name) {
+            throw new TypeError('Invalid clip name: empty string.');
+        }
+        if (name.length > CLIP_NAME_MAX_LENGTH) {
+            throw new RangeError(`Invalid clip name: too long (${name.length} > ${CLIP_NAME_MAX_LENGTH}).`);
+        }
+        if (!CLIP_NAME_RE.test(name)) {
+            throw new TypeError('Invalid clip name: expected path-like without leading/trailing slash, e.g. "home" or "user/profile".');
         }
         if (_handlers[name]) {
             throw new Error(`Duplicate clip: ${name}`);
         }
 
+        // Nombre del tipo de clip base.
         if (typeof base === 'object' && base !== null) {
             proto = base;
             base = null;
         } else if (typeof base === 'string') {
             base = base.trim();
             if (!base) {
-                throw new TypeError(`Invalid base name, non-empty string required.`);
+                throw new TypeError(`Invalid base name: empty string.`);
             }
             if (!_handlers[base]) {
                 throw new ReferenceError(`Base clip "${base}" not defined.`);
             }
         } else {
-            throw new TypeError('Invalid base, string or object required.');
+            throw new TypeError('Invalid base: string or object required.');
         }
 
+        // Objeto prototipo.
         if (proto === null || typeof proto !== 'object' || Object.getPrototypeOf(proto) !== Object.prototype) {
-            throw new TypeError('Invalid proto object, plain object required.');
+            throw new TypeError('Invalid proto object: plain object required.');
         }
 
-        const B = base ? _handlers[base] : Clip,
-            C = function(options) {
-                B.call(this, options);
-            };
-        C.prototype = Object.assign(Object.create(B.prototype), proto);
-        C.prototype.constructor = C;
-        C.prototype.__base = B;
-        C.prototype.__name = name;
+        // Se determina el constructor base si se ha especificado.
+        const B = base ? _handlers[base] : Clip;
+
+        // Se crea la función constructora del nuevo clip.
+        const C = function(options) {
+            B.call(this, options);
+        };
+
+        // Se heredan los estáticos del constructor base.
+        Object.setPrototypeOf(C, B);
+
+        // Se crea el prototipo del nuevo clip a partir del prototipo base.
+        C.prototype = Object.create(B.prototype);
+        Object.defineProperties(C.prototype, Object.getOwnPropertyDescriptors(proto));
+
+        // Se define la propiedad "constructor" no enumerable.
+        Object.defineProperty(C.prototype, 'constructor', {
+            value: C,
+            writable: true,
+            configurable: true,
+            enumerable: false
+        });
+
+        // Se añade la propiedad "clipName" al constructor y el método de acceso para facilitar el acceso desde las instancias.
+        const CLIP_NAME = Symbol('clips.name');
+        Object.defineProperty(C, CLIP_NAME, {
+            value: name
+        });
+        Object.defineProperty(C.prototype, 'clipName', {
+            get() {
+                return this.constructor[CLIP_NAME];
+            },
+            configurable: true,
+            enumerable: false
+        });
+
+        // Se define la propiedad "displayName" para depuración.
+        C.displayName = name;
+
+        // Se añade la referencia al prototipo base.
+        const BASE = Symbol('clips.base');
+        Object.defineProperty(C, BASE, {
+            value: B
+        });
+        Object.defineProperty(C.prototype, 'basePrototype', {
+            get() { return this.constructor[BASE]?.prototype ?? null; },
+            enumerable: false
+        });
+
+        // Se devuelve el constructor del nuevo clip.
         return _handlers[name] = C;
     },
 
-    create: async function(name, options) {
+    /**
+     * Crea una nueva instancia del tipo de clip especificado por nombre.
+     * @param {string} name Nombre del tipo de clip especificado.
+     * @param {ClipOptions} [options] Opciones de creación del clip.
+     * @return {Clip} Instancia del clip creada.
+     */
+    create: async function(name, options = {}) {
+        if (typeof name !== "string" || !(name = name.trim())) {
+            throw new TypeError('Invalid clip name: non-empty string required.');
+        }
         if (!_handlers[name]) {
-            await import(`${_base}/${name}/handler.js`.toString());
+            const url = `${_basePath}/${name}/handler.js`;
+            try {
+                await import(url);
+            } catch (err) {
+                throw new ReferenceError(`Clip "${name}" could not be loaded from ${url}.`, {
+                    cause: err
+                });
+            }
         }
         const handler = _handlers[name];
         if (!handler) {
-            return null;
+            throw new ReferenceError(`Clip "${name}" is not defined.`);
         }
         return new handler(options);
     },
 
-    setBasePath: function(path) {
-
+    /**
+     * Fija la ruta base de donde cargar los clips.
+     * @param {string} path Ruta especificada.
+     */
+    basePath: function(path) {
+        _basePath = path.replace(/\/$/, '');
     }
 
 };
