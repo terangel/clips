@@ -43,7 +43,7 @@ Clip.prototype.load = function(options) {};
  * ...
  */
 Clip.prototype.render = function(options) {
-    // TODO: Implementar
+    clips.render(`${this.clipName}/layout`, options);
 };
 
 Clip.prototype.ready = function(options) {};
@@ -119,6 +119,63 @@ const _handlers = Object.create(null);
  * @type {Object.<string, (...) => HTMLElement}
  */
 const _templates = Object.create(null);
+
+/**
+ * Carga la plantilla especificada.
+ * @param {string} Nombre o ruta de la plantilla especificada.
+ * @return {Function} Función de la plantilla cargada.
+ */
+const _loadTemplate = async function(name) {
+    // home/layout
+    // user/profile/layout
+    const path = `${_basePath}/${name}.ejs`;
+    const res = await fetch(path, { cache: "no-store" }); // evita cache en dev
+    if (!res.ok) {
+        throw new Error(`Unable to load template: ${path} (${res.status})`);
+    }
+    return _templates[name] = _compileTemplate(await res.text());
+}
+
+const _escLit = (str) => str
+    .replace(/\\/g, "\\\\")
+    .replace(/`/g, "\\`")
+    .replace(/\$\{/g, "\\${")
+    .replace(/\r/g, "\\r");
+
+const _ejsTagsRE = /<%[-=]?[\s\S]*?%>/g;
+
+const _esc = (x) => String(x)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#39;");
+
+/**
+ * ...
+ */
+const _compileTemplate = async function(src) {
+    let offset = 0, match;
+    let body = '';
+    const addText = (text) => { if (text) body += `out.push(\`${_escLit(text)}\`);`; };
+    while ((match = _ejsTagsRE.exec(src)) !== null) {
+      addText(src.slice(offset, match.index));
+      offset = match.index + match[0].length;
+
+      const mark = match[0][2]; // '%', '=', '-'
+      const code = match[0].slice(2 + (mark === '=' || mark === '-' ? 1 : 0), -2).trim();
+
+      if (mark === '=') {
+        body += `out.push(escape((${code}))); \n`;
+      } else if (mark === '-') {
+        body += `out.push(String((${code}))); \n`;
+      } else {
+        body += code + '\n';
+      }
+    }
+    addText(src.slice(offset));
+    return new Function('locals', `with (locals) { ${body} }`);
+}
 
 /**
  * Librería clips.
@@ -254,11 +311,38 @@ const clips = {
     },
 
     /**
+     * Renderiza la plantilla especificada.
+     * @param {string} name Nombre o ruta de la plantilla a renderizar.
+     * @param {Object} options Opciones adicionales de renderizado.
+     * @return {HTMLElement} DOM generado. 
+     */
+    render: async function(name, options) {
+        let template = _templates[name];
+        // 1. Lo primero es comprobar si disponemos ya de la plantilla ya cargada.
+        if (!template) {
+            template = await _loadTemplate(name)
+        }
+        const out = [];
+        const html = template({
+            out,
+            escape: _esc,
+            include: function(name, options) {
+                console.log(`Including ${name}...`);
+            },
+            print: (...args) => out.push(...args.map(String))
+        });
+        console.log(html);
+    },
+
+    /**
      * Fija la ruta base de donde cargar los clips.
      * @param {string} path Ruta especificada.
      */
     basePath: function(path) {
-        _basePath = path.replace(/\/$/, '');
+        if (typeof path === 'string') {
+            path = path.trim().replace(/\/$/, '');
+        }
+        _basePath = path;
     }
 
 };
