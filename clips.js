@@ -37,13 +37,16 @@ Clip.prototype.include = function(target, options = {}) {
 /**
  * ...
  */
-Clip.prototype.load = function(options) {};
+Clip.prototype.load = async function(options) {};
 
 /**
  * ...
  */
 Clip.prototype.render = function(options) {
-    clips.render(`${this.clipName}/layout`, options);
+    const nodes = clips.render(`${this.clipName}/layout`, options);
+    if (elements.length > 0) {
+
+    }
 };
 
 Clip.prototype.ready = function(options) {};
@@ -103,6 +106,14 @@ const CLIP_NAME_RE = /^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/;
 const CLIP_NAME_MAX_LENGTH = 256;
 
 /**
+ * Expresión para extraer el nombre y opcionalmente el tipo de inclusión, si 
+ * plantilla (template:) o clip (clip:).
+ * @type {RegExp}
+ * @constant 
+ */
+const INCLUDE_RE = /^(?:(?<type>clip|template):)?(?<name>[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*)$/;
+
+/**
  * Ruta base de donde cargar los clips.
  * @type {string}
  */
@@ -126,8 +137,6 @@ const _templates = Object.create(null);
  * @return {Function} Función de la plantilla cargada.
  */
 const _loadTemplate = async function(name) {
-    // home/layout
-    // user/profile/layout
     const path = `${_basePath}/${name}.ejs`;
     const res = await fetch(path, { cache: "no-store" }); // evita cache en dev
     if (!res.ok) {
@@ -311,27 +320,50 @@ const clips = {
     },
 
     /**
-     * Renderiza la plantilla especificada.
+     * Renderiza la plantilla especificada por nombre.
      * @param {string} name Nombre o ruta de la plantilla a renderizar.
      * @param {Object} options Opciones adicionales de renderizado.
-     * @return {HTMLElement} DOM generado. 
+     * @return {DocumentFragment} Fragmento generado. 
      */
     render: async function(name, options) {
-        let template = _templates[name];
-        // 1. Lo primero es comprobar si disponemos ya de la plantilla ya cargada.
-        if (!template) {
-            template = await _loadTemplate(name)
+        let templateFunc = _templates[name];
+        if (!templateFunc) {
+            templateFunc = await _loadTemplate(name);
         }
         const out = [];
-        const html = template({
+        const includes = [];
+        templateFunc({
             out,
             escape: _esc,
             include: function(name, options) {
-                console.log(`Including ${name}...`);
+                includes.push({
+                    name, options
+                });
+                return `<clip-slot data-idx="${includes.length}"></clip-slot>`;
             },
             print: (...args) => out.push(...args.map(String))
         });
-        console.log(html);
+        const template = document.create('template');
+        template.innerHTML = out.join('');
+        
+        // Resolvemos los includes.
+        const slots = template.querySelectorAll('clip-slot');
+        for (let i = 0, inc, fragment; i < includes.length; i++) {
+            inc = includes[i];
+            const m = INCLUDE_RE.exec(inc.name);
+            if (!m) {
+                // TODO: Error, nombre de include no válido.
+            }
+            const type = m.groups?.type ?? 'auto';
+            const name = m.groups.name;
+            
+            if (type === )
+
+
+            fragment = clips.render(inc.name, inc.options);
+            slots[i].replace(fragment);
+        }
+        return template.content;
     },
 
     /**
