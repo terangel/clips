@@ -19,20 +19,81 @@ function Clip(options = {}) {
 }
 
 /**
+ * Diferentes posiciones en las que incluir un clip en el DOM con respecto al elemento objetivo.
+ * @readonly
+ * @enum {string}
+ */
+Clip.Position = Object.freeze({
+    START:      'start',
+    END:        'end',
+    BEFORE:     'before',
+    AFTER:      'after',
+    REPLACE:    'replace'
+});
+
+/**
+ * Nombre de plantilla por defecto.
+ * @type {string}
+ * @constant
+ */
+Clip.defaultTemplateName = 'layout';
+
+/**
  * Función de creación de nuevas instancias.
  * @param {ClipOptions} options Opciones de creación.
  */
 Clip.prototype.create = function(options = {}) {};
 
 /**
- * Función para incluir el clip en un elemento contenedor.
- * @param {HTMLElement} target Elemento contenedor donde incluir el clip.
- * @param {Object} options Opciones de inclusión.
+ * Función para incluir el clip con respecto al elemento (target) especificado.
+ * @param {Element} target Elemento especificado.
+ * @param {Object} [options] Opciones de inclusión.
+ * @param {Clip.Position} [options.position=Clip.Position.END] Posición de inclusión del clip con respecto al elemento (target) 
+ * especificado. 
  */
-Clip.prototype.include = function(target, options = {}) {
-    target.append(this.render(options));
+Clip.prototype.include = async function(target, options = {}) {
+    if (!(target instanceof Element)) {
+        throw new TypeError('Invalid target: must be an Element.');
+    }
+    // Se comprueba si ya se ha generado la raíz del clip.
+    if (!this.root) {
+        await this.render();
+    }
+    // Se comprueba que el nodo generado sea un elemento.
+    if (!this.root || !(this.root instanceof Element)) {
+        throw new Error(`Invalid clip root: must be an Element.`);
+    }
+    // Se inserta el elemento en la posición especificada.
+    const position = options.position || Clip.Position.END; 
+    switch (position) {
+        case Clip.Position.AFTER:
+            target.after(this.root);
+            break;
+        case Clip.Position.BEFORE:
+            target.before(this.root);
+        break;
+        case Clip.Position.REPLACE:
+            target.replaceWith(this.root)
+            break;
+        case Clip.Position.START:
+            target.prepend(this.root);
+            break;
+        case Clip.Position.END:
+            target.append(this.root);
+            break;
+        default:
+            throw new RangeError(`Invalid position: ${position}.`);
+    }
 };
 
+/**
+ * Renderiza el clip.
+ * @param {Object} [options] Opciones adicionales de renderizado.
+ * @return {Element} Devuelve el elemento raíz.
+ */
+Clip.prototype.render = async function(options) {
+    return this.root = await clips.render(`${this.clipName}/${this.defaultClipName}`, options);
+};
 
 /**
  * ...
@@ -42,35 +103,61 @@ Clip.prototype.load = async function(options) {};
 /**
  * ...
  */
-Clip.prototype.render = function(options) {
-    const nodes = clips.render(`${this.clipName}/layout`, options);
-    if (elements.length > 0) {
-
-    }
-};
-
 Clip.prototype.ready = function(options) {};
 
+/**
+ * ...
+ */
 Clip.prototype.update = function(options) {};
 
+/**
+ * ...
+ */
 Clip.prototype.reload = function(options) {};
 
+/**
+ * ...
+ */
 Clip.prototype.clear = function(options) {};
 
+/**
+ * ...
+ */
 Clip.prototype.toggle = function(options) {};
 
+/**
+ * ...
+ */
 Clip.prototype.isVisible = function(options) {};
 
+/**
+ * ...
+ */
 Clip.prototype.remove = function(options) {};
 
+/**
+ * ...
+ */
 Clip.prototype.destroy = function(options) {};
 
+/**
+ * ...
+ */
 Clip.prototype.appendClip = function(options) {};
 
+/**
+ * ...
+ */
 Clip.prototype.removeClip = function(options) {};
 
+/**
+ * ...
+ */
 Clip.prototype.clearAll = function(options) {};
 
+/**
+ * ...
+ */
 Clip.prototype.destroy = function(options) {};
 
 
@@ -106,12 +193,11 @@ const CLIP_NAME_RE = /^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/;
 const CLIP_NAME_MAX_LENGTH = 256;
 
 /**
- * Expresión para extraer el nombre y opcionalmente el tipo de inclusión, si 
- * plantilla (template:) o clip (clip:).
- * @type {RegExp}
- * @constant 
+ * Prefijo para especificar referencias a clips en inclusiones.
+ * @type {string}
+ * @constant
  */
-const INCLUDE_RE = /^(?:(?<type>clip|template):)?(?<name>[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*)$/;
+const CLIP_PREFIX = 'clip:';
 
 /**
  * Ruta base de donde cargar los clips.
@@ -330,39 +416,42 @@ const clips = {
         if (!templateFunc) {
             templateFunc = await _loadTemplate(name);
         }
-        const out = [];
+        // Se ejecuta la plantilla.
         const includes = [];
-        templateFunc({
-            out,
+        const locals = {
+            out: [],
             escape: _esc,
-            include: function(name, options) {
+            print: (...args) => locals.out.push(...args.map(_esc)),
+            printRaw: (...args) => locals.out.push(...args.map(String)),
+            include: function(name, options = {}) {
                 includes.push({
                     name, options
                 });
-                return `<clip-slot data-idx="${includes.length}"></clip-slot>`;
-            },
-            print: (...args) => out.push(...args.map(String))
-        });
-        const template = document.create('template');
-        template.innerHTML = out.join('');
+                locals.out.push(`<clip-slot/>`);
+            }            
+        };
+        templateFunc(locals);
+
+        // Se crea un elemento "template" para añadir el código HTML.
+        const template = document.createElement('template');
+        template.innerHTML = locals.out.join('');
         
-        // Resolvemos los includes.
-        const slots = template.querySelectorAll('clip-slot');
-        for (let i = 0, inc, fragment; i < includes.length; i++) {
-            inc = includes[i];
-            const m = INCLUDE_RE.exec(inc.name);
-            if (!m) {
-                // TODO: Error, nombre de include no válido.
-            }
-            const type = m.groups?.type ?? 'auto';
-            const name = m.groups.name;
-            
-            if (type === )
-
-
-            fragment = clips.render(inc.name, inc.options);
-            slots[i].replace(fragment);
+        // Resolvemos los includes añadidos.
+        const slots = template.content.querySelectorAll('clip-slot');
+        if (slots.length !== includes.length) {
+            throw new Error(`Includes mismatch: ${slots.length} vs ${includes.length}`);
         }
+        for (let i = 0, c, fragment; i < includes.length; i++) {
+            if (includes[i].name.startsWith(CLIP_PREFIX)) {
+                c = await clips.create(includes[i].name.substring(CLIP_PREFIX.length), includes[i].options);
+                await c.include(slots[i], { ...includes[i].options, position: Clip.Position.REPLACE });
+                continue;
+            }
+            fragment = await clips.render(includes[i].name, includes[i].options);
+            slots[i].replaceWith(fragment);
+        }
+
+        // Se devuelve el contenido generado.
         return template.content;
     },
 
