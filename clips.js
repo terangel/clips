@@ -249,6 +249,13 @@ const CLIP_NAME_MAX_LENGTH = 256;
 const CLIP_PREFIX = 'clip:';
 
 /**
+ * Expresión para verificar si una cadena solo contiene espacios.
+ * @type {RegExp}
+ * @constant  
+ */
+const WS_RE = /^\s*$/;
+
+/**
  * Ruta base de donde cargar los clips.
  * @type {string}
  */
@@ -298,7 +305,7 @@ const _esc = (x) => String(x)
 /**
  * ...
  */
-const _compileTemplate = async function(src) {
+const _compileTemplate = function(src) {
     let offset = 0, match;
     let body = '';
     const addText = (text) => { if (text) body += `out.push(\`${_escLit(text)}\`);`; };
@@ -491,7 +498,7 @@ const clips = {
             printRaw: (...args) => locals.out.push(...args.map(v => String(v))),
             include: function(name, options = {}) {
                 includes.push({ name, options });
-                locals.out.push('<clip-slot/>');
+                locals.out.push('<clip-slot></clip-slot>');
             }
         };
 
