@@ -36,7 +36,7 @@ Clip.Position = Object.freeze({
  * @type {string}
  * @constant
  */
-Clip.defaultTemplateName = 'layout';
+Clip.prototype.defaultTemplateName = 'layout';
 
 /**
  * Función de creación de nuevas instancias.
@@ -128,7 +128,7 @@ Clip.prototype.include = async function(target, options = {}) {
  * @returns {Promise<DocumentFragment|Element|string>} Devuelve un fragmento, un elemento o directamente código HTML.
  */
 Clip.prototype.render = async function(options) {
-    return clips.render(`${this.clipName}/${this.defaultClipName}`, options);
+    return clips.render(`${this.clipName}/${this.defaultTemplateName}`, options);
 };
 
 /**

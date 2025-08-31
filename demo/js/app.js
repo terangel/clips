@@ -15,4 +15,6 @@ const app = {
 
 };
 
-app.start();
+document.addEventListener('DOMContentLoaded', () => {
+    app.start();
+});
