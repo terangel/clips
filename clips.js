@@ -52,19 +52,46 @@ Clip.prototype.create = function(options = {}) {};
  * especificado. 
  */
 Clip.prototype.include = async function(target, options = {}) {
-    if (!(target instanceof Element)) {
+    // Se comprueba que el target sea un Element.
+    if (!target || target.nodeType !== Node.ELEMENT_NODE) {
         throw new TypeError('Invalid target: must be an Element.');
     }
-    // Se comprueba si ya se ha generado la raíz del clip.
+    // Si todavía no se ha generado el elemento raíz se llama al render.
     if (!this.root) {
-        await this.render();
+        let out = await this.render();
+        if (out?.nodeType === Node.ELEMENT_NODE) {
+            this.root = out;
+        } else {
+            let root;
+            if (typeof out === 'string') {
+                const template = document.createElement('template');
+                template.innerHTML = out;
+                out = template.content;
+            }
+            if (out?.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+                for (let n = out.firstChild; n; n = n.nextSibling) {
+                    if (n.nodeType === Node.ELEMENT_NODE) {
+                        if (root) {
+                            throw new Error('Multiple root elements are not allowed.');
+                        }
+                        root = n;
+                    } else if (n.nodeType === Node.TEXT_NODE) {
+                        if (!WS_RE.test(n.data)) {
+                            throw new Error('Text outside the root element is not allowed.');
+                        }
+                    } else if (n.nodeType !== Node.COMMENT_NODE) {
+                        throw new Error(`Unsupported node type (${n.nodeType}) outside the root element.`);                    }
+                }
+            }
+            if (!root) {
+                throw new Error(`Missing clip root. Ensure render() returns an Element, or a DocumentFragment/HTML string with a single-root Element.`);
+            }
+            this.root = root;
+        }
     }
-    // Se comprueba que el nodo generado sea un elemento.
-    if (!this.root || !(this.root instanceof Element)) {
-        throw new Error(`Invalid clip root: must be an Element.`);
-    }
+
     // Se inserta el elemento en la posición especificada.
-    const position = options.position || Clip.Position.END; 
+    const position = options.position ?? Clip.Position.END; 
     switch (position) {
         case Clip.Position.AFTER:
             target.after(this.root);
@@ -73,7 +100,12 @@ Clip.prototype.include = async function(target, options = {}) {
             target.before(this.root);
         break;
         case Clip.Position.REPLACE:
-            target.replaceWith(this.root)
+            if (this.root.contains(target)) {
+                target.before(this.root);
+                target.remove();
+            } else {
+                target.replaceWith(this.root);
+            }
             break;
         case Clip.Position.START:
             target.prepend(this.root);
@@ -84,6 +116,19 @@ Clip.prototype.include = async function(target, options = {}) {
         default:
             throw new RangeError(`Invalid position: ${position}.`);
     }
+
+    // Devuelve la instancia del propio clip.
+    return this;
+};
+
+/**
+ * Renderiza el clip. Por defecto intentará renderizar la plantilla por defecto (/layout.ejs) localizada en la misma 
+ * ubicación que el manejador del clip. 
+ * @param {Object} [options] Opciones adicionales de renderizado.
+ * @returns {Promise<DocumentFragment|Element|string>} Devuelve un fragmento, un elemento o directamente código HTML.
+ */
+Clip.prototype.render = async function(options) {
+    return clips.render(`${this.clipName}/${this.defaultClipName}`, options);
 };
 
 /**
@@ -91,8 +136,12 @@ Clip.prototype.include = async function(target, options = {}) {
  * @param {Object} [options] Opciones adicionales de renderizado.
  * @return {Element} Devuelve el elemento raíz.
  */
-Clip.prototype.render = async function(options) {
-    return this.root = await clips.render(`${this.clipName}/${this.defaultClipName}`, options);
+Clip.prototype._render = async function(options) {
+    const fragment = await this.render(options);
+    // TODO: Quedarnos con el primer Element y asignarselo a this.root, lanzar error si hay más de un elemento.
+    // this.root = rootElement;
+    // TO
+    return this.root;
 };
 
 /**
@@ -408,7 +457,7 @@ const clips = {
     /**
      * Renderiza la plantilla especificada por nombre.
      * @param {string} name Nombre o ruta de la plantilla a renderizar.
-     * @param {Object} options Opciones adicionales de renderizado.
+     * @param {Object} [options] Opciones adicionales de renderizado.
      * @return {DocumentFragment} Fragmento generado. 
      */
     render: async function(name, options) {
@@ -416,27 +465,44 @@ const clips = {
         if (!templateFunc) {
             templateFunc = await _loadTemplate(name);
         }
-        // Se ejecuta la plantilla.
+        
+        /** 
+         * Includes añadidos durante la ejecución de la plantilla.
+         * Cada entrada contiene el nombre y las opciones especificadas.
+         * @type {Array<{name: string, options?: any}>}
+         */
         const includes = [];
+
+        /** 
+         * Contexto local pasado a la función de plantilla.
+         * Contiene el buffer de salida y las utilidades básicas (escape, print, include...).
+         * @type {{
+         *  out: string[],
+         *  escape: (value: any) => string,
+         *  print: (...args: any[]) => void,
+         *  printRaw: (...args: any[]) => void,
+         *  include: (name: string, options?: Object) => void
+         * }}
+         */
         const locals = {
             out: [],
             escape: _esc,
-            print: (...args) => locals.out.push(...args.map(_esc)),
-            printRaw: (...args) => locals.out.push(...args.map(String)),
+            print: (...args) => locals.out.push(...args.map(v => _esc(String(v)))),
+            printRaw: (...args) => locals.out.push(...args.map(v => String(v))),
             include: function(name, options = {}) {
-                includes.push({
-                    name, options
-                });
-                locals.out.push(`<clip-slot/>`);
-            }            
+                includes.push({ name, options });
+                locals.out.push('<clip-slot/>');
+            }
         };
+
+        // Se ejecuta la plantilla con el contexto anterior.
         templateFunc(locals);
 
-        // Se crea un elemento "template" para añadir el código HTML.
+        // Se crea un elemento "template" para parsear el código HTML generado.
         const template = document.createElement('template');
         template.innerHTML = locals.out.join('');
         
-        // Resolvemos los includes añadidos.
+        // Resolvemos las inclusiones añadidas.
         const slots = template.content.querySelectorAll('clip-slot');
         if (slots.length !== includes.length) {
             throw new Error(`Includes mismatch: ${slots.length} vs ${includes.length}`);
