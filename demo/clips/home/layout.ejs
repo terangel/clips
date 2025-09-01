@@ -1,6 +1,7 @@
 <div>
     <h1>HOME CLIP</h1>
 <% 
+    include('clip:today', {});
     for (let i = 0; i < 5; i++) {
         include('home/sample', {});
     }
