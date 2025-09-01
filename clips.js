@@ -58,7 +58,14 @@ Clip.prototype.include = async function(target, options = {}) {
     }
     // Si todavía no se ha generado el elemento raíz se llama al render.
     if (!this.root) {
-        let out = await this.render();
+        let out;
+        try {
+            out = await this.render();
+        } catch (err) {
+            throw new Error(`Unable to render clip "${this.clipName}": ${err.message}`, {
+                cause: err
+            });
+        }
         if (out?.nodeType === Node.ELEMENT_NODE) {
             this.root = out;
         } else {
@@ -88,6 +95,15 @@ Clip.prototype.include = async function(target, options = {}) {
             }
             this.root = root;
         }
+        // Se guarda la vinculación del clip con su elemento raíz.
+        _elementClips.set(this.root, this);
+        // Se guarda como propiedad del elemento para mejorar la visibilidad en depuración.
+        Object.defineProperty(this.root, '__clip', {
+            value: this,
+            writable: false,
+            configurable: true
+        });
+
     }
 
     // Se inserta el elemento en la posición especificada.
@@ -264,12 +280,14 @@ let _basePath = '/clips';
 /**
  * Manejadores de Clips definidos.
  * @type {Object.<string, Clip>}
+ * @constant
  */
 const _handlers = Object.create(null);
 
 /**
  * Funciones de plantilla añadidas.
  * @type {Object.<string, (...) => HTMLElement}
+ * @constant
  */
 const _templates = Object.create(null);
 
@@ -327,6 +345,17 @@ const _compileTemplate = function(src) {
     addText(src.slice(offset));
     return new Function('locals', `with (locals) { ${body} }`);
 }
+
+/**
+ * Mapa de asociación entre elementos e instancias de clips.
+ * @type {WeakMap.<Element, Clip>}
+ * @constant
+ */
+const _elementClips = new WeakMap();
+
+
+
+
 
 /**
  * Librería clips.
@@ -529,6 +558,21 @@ const clips = {
     },
 
     /**
+     * Devuelve el clip asociado con el elemento especificado.
+     * @param {HTMLElement|string} el Elemento o selector.
+     * @param {string} [selector] Selector adicional dentro del elemento especificado.
+     * @returns {Clip|null} Clip o nulo si no se encuentra.
+     */
+    find: function(el, selector) {
+        if (typeof el === 'string') {
+            el = document.querySelector(el);
+        } else if (el instanceof Element && selector) {
+            el = el.querySelector(selector);
+        }
+        return (el instanceof Element && _elementClips.get(el)) || null;
+    },
+
+    /**
      * Fija la ruta base de donde cargar los clips.
      * @param {string} path Ruta especificada.
      */
@@ -540,5 +584,11 @@ const clips = {
     }
 
 };
+
+
+// Exponer globalmente solo en el contexto del navegador.
+if (typeof window !== 'undefined') {
+  window.clips = clips;
+}
 
 export default clips;
