@@ -1,20 +1,78 @@
 /**
- * @typedef {Object} ClipOptions
- * @property {Clip} [parentClip=null] Referencia al Clip padre.
- * ...
- */
-
-/**
- * Tipo Clip.
- * @param {ClipOptions} [options] Opciones de creación de clips.
+ * Función constructora, base de todo clip.
+ * @param {Object} [options={}] Opciones de creación.
  * @constructor
  */
 function Clip(options = {}) {
-    this.root = null;
-    this.parentClip = options.parentClip || null;
-    this.childClips = [];
-    this.loadTime = 0;
+
+    /**
+     * Referencia al nodo raíz del clip.
+     * @type {Element}
+     * @private
+     */
+    this._root = null;
+
+    /**
+     * Referencia al clip padre o contenedor.
+     * @type {Clip}
+     * @private
+     */
+    this._parentClip = null;
+
+    /**
+     * Conjunto de subclips contenidos.
+     * @type {Set<Clip>}
+     * @private
+     */
+    this._childClips = new Set();
+
+    /**
+     * Tiempo de carga.
+     * @type {number}
+     * @private
+     */
+    this._loadTime = 0;
+
+    /**
+     * Manejadores de eventos añadidos.
+     * @type {Object.<string, Function>}
+     * @private
+     */
     this.eventListeners = {};
+
+
+    // Se definen los accesores de las propiedades anteriores.
+    Object.defineProperties(this, {
+        root: {
+            /** @returns {Element|null} */
+            get() {
+                return this._root;
+            },
+            enumerable: true
+        },
+        parentClip: {
+            /** @returns {Clip|null} */
+            get() {
+                return this._parentClip;
+            },
+            enumerable: true
+        },
+        childClips: {
+            /** @returns {Clip[]} */
+            get() {
+                return Array.from(this._childClips);
+            },
+            enumerable: true
+        },
+        childCount: {
+            /** @returns {number} */
+            get() {
+                return this._childClips.size;
+            }
+        }
+    });
+
+    // Se llama a la función create.
     this.create(options);
 }
 
@@ -40,14 +98,15 @@ Clip.prototype.defaultTemplateName = 'layout';
 
 /**
  * Función de creación de nuevas instancias.
- * @param {ClipOptions} options Opciones de creación.
+ * @param {Object} options Opciones de creación.
  */
-Clip.prototype.create = function(options = {}) {};
+Clip.prototype.create = function(options) {};
 
 /**
  * Función para incluir el clip con respecto al elemento (target) especificado.
  * @param {Element} target Elemento especificado.
  * @param {Object} [options] Opciones de inclusión.
+ * @param {Clip} [options.parentClip] Referencia al clip contenedor.
  * @param {Clip.Position} [options.position=Clip.Position.END] Posición de inclusión del clip con respecto al elemento (target) 
  * especificado. 
  */
@@ -57,17 +116,17 @@ Clip.prototype.include = async function(target, options = {}) {
         throw new TypeError('Invalid target: must be an Element.');
     }
     // Si todavía no se ha generado el elemento raíz se llama al render.
-    if (!this.root) {
+    if (!this._root) {
         let out;
         try {
-            out = await this.render();
+            out = await this.render(options);
         } catch (err) {
             throw new Error(`Unable to render clip "${this.clipName}": ${err.message}`, {
                 cause: err
             });
         }
         if (out?.nodeType === Node.ELEMENT_NODE) {
-            this.root = out;
+            this._root = out;
         } else {
             let root;
             if (typeof out === 'string') {
@@ -93,49 +152,53 @@ Clip.prototype.include = async function(target, options = {}) {
             if (!root) {
                 throw new Error(`Missing clip root. Ensure render() returns an Element, or a DocumentFragment/HTML string with a single-root Element.`);
             }
-            this.root = root;
+            this._root = root;
         }
         // Se guarda la vinculación del clip con su elemento raíz.
-        _elementClips.set(this.root, this);
+        _elementClips.set(this._root, this);
         // Se guarda como propiedad del elemento para mejorar la visibilidad en depuración.
-        Object.defineProperty(this.root, '__clip', {
+        Object.defineProperty(this._root, '__clip', {
             value: this,
             writable: false,
             configurable: true
         });
-
     }
 
     // Se inserta el elemento en la posición especificada.
     const position = options.position ?? Clip.Position.END; 
     switch (position) {
         case Clip.Position.AFTER:
-            target.after(this.root);
+            target.after(this._root);
             break;
         case Clip.Position.BEFORE:
-            target.before(this.root);
+            target.before(this._root);
         break;
         case Clip.Position.REPLACE:
-            if (this.root.contains(target)) {
-                target.before(this.root);
+            if (this._root.contains(target)) {
+                target.before(this._root);
                 target.remove();
             } else {
-                target.replaceWith(this.root);
+                target.replaceWith(this._root);
             }
             break;
         case Clip.Position.START:
-            target.prepend(this.root);
+            target.prepend(this._root);
             break;
         case Clip.Position.END:
-            target.append(this.root);
+            target.append(this._root);
             break;
         default:
             throw new RangeError(`Invalid position: ${position}.`);
     }
 
-    // Devuelve la instancia del propio clip.
+    // Se añade al clip padre o contenedor. Si no se especifica, se busca en los elementos ascendientes.
+    (options.parentClip || _closestClip(this._root))?._appendClip(this);
+
+    // Se devuelve la instancia del propio clip.
     return this;
 };
+
+
 
 /**
  * Renderiza el clip. Por defecto intentará renderizar la plantilla por defecto (/layout.ejs) localizada en la misma 
@@ -144,20 +207,7 @@ Clip.prototype.include = async function(target, options = {}) {
  * @returns {Promise<DocumentFragment|Element|string>} Devuelve un fragmento, un elemento o directamente código HTML.
  */
 Clip.prototype.render = async function(options) {
-    return clips.render(`${this.clipName}/${this.defaultTemplateName}`, options);
-};
-
-/**
- * Renderiza el clip.
- * @param {Object} [options] Opciones adicionales de renderizado.
- * @return {Element} Devuelve el elemento raíz.
- */
-Clip.prototype._render = async function(options) {
-    const fragment = await this.render(options);
-    // TODO: Quedarnos con el primer Element y asignarselo a this.root, lanzar error si hay más de un elemento.
-    // this.root = rootElement;
-    // TO
-    return this.root;
+    return clips.render(this, `${this.clipName}/${this.defaultTemplateName}`, options);
 };
 
 /**
@@ -205,25 +255,56 @@ Clip.prototype.remove = function(options) {};
  */
 Clip.prototype.destroy = function(options) {};
 
+
+
 /**
- * ...
+ * Añade un nuevo subclip.
+ * @param {Clip} clip Clip especificado.
+ * @private
  */
-Clip.prototype.appendClip = function(options) {};
+Clip.prototype._appendClip = function(clip) {
+    if (clip._parentClip) {
+        clip._parentClip._removeClip(clip);
+    }
+    this._childClips.add(clip);
+    clip._parentClip = this;
+};
+
+/**
+ * Elimina el subclip especificado.
+ * @param {Clip} clip Clip especificado.
+ * @private
+ */
+Clip.prototype._removeClip = function(clip) {
+    if (this._childClips.delete(clip)) {
+        clip._parentClip = null;
+    }
+};
 
 /**
  * ...
  */
-Clip.prototype.removeClip = function(options) {};
+Clip.prototype.removeAll = function() {
+    for (let c of this._childClips) {
+        this._childClips.delete(c);
+        c._parentClip = null;
+    }
+    // let c;
+    // while (c = this.childClips.shift()) {
+    //     if (uix.contains(this._root, v.root)) {
+    //         c.destroy();
+    //     }
+    // }
+    // uix.empty(this._root);
+};
+
 
 /**
  * ...
  */
-Clip.prototype.clearAll = function(options) {};
-
-/**
- * ...
- */
-Clip.prototype.destroy = function(options) {};
+Clip.prototype.destroy = function(options) {
+    // TODO: ...
+};
 
 
 // Scroll
@@ -353,8 +434,17 @@ const _compileTemplate = function(src) {
  */
 const _elementClips = new WeakMap();
 
-
-
+/**
+ * Devuelve el primer clip vinculado a uno de los ascendientes del elemento especificado.
+ * @param {Element} el Elemento especificado.
+ * @returns {Clip|null} Clip encontrado o null si no se encuentra.
+ */
+const _closestClip = function(el) {
+    for (let n = el?.parentElement, c; n; n = n.parentElement) {
+        if (c = _elementClips.get(n)) return c;
+    }
+    return null;
+};
 
 
 /**
@@ -491,13 +581,15 @@ const clips = {
     },
 
     /**
-     * Renderiza la plantilla especificada por nombre.
+     * Renderiza la plantilla especificada por nombre en el contexto del clip actual.
+     * @param {Clip} clip Referencia al clip actual.
      * @param {string} name Nombre o ruta de la plantilla a renderizar.
      * @param {Object} [options] Opciones adicionales de renderizado.
      * @return {DocumentFragment} Fragmento generado. 
      */
-    render: async function(name, options) {
+    render: async function(clip, name, options) {
         let templateFunc = _templates[name];
+        // Si no existe la plantilla se intenta cargar.
         if (!templateFunc) {
             templateFunc = await _loadTemplate(name);
         }
@@ -532,7 +624,7 @@ const clips = {
         };
 
         // Se ejecuta la plantilla con el contexto anterior.
-        templateFunc(locals);
+        templateFunc.call(clip, locals);
 
         // Se crea un elemento "template" para parsear el código HTML generado.
         const template = document.createElement('template');
@@ -546,10 +638,10 @@ const clips = {
         for (let i = 0, c, fragment; i < includes.length; i++) {
             if (includes[i].name.startsWith(CLIP_PREFIX)) {
                 c = await clips.create(includes[i].name.substring(CLIP_PREFIX.length), includes[i].options);
-                await c.include(slots[i], { ...includes[i].options, position: Clip.Position.REPLACE });
+                await c.include(slots[i], { ...includes[i].options, position: Clip.Position.REPLACE, parentClip: clip });
                 continue;
             }
-            fragment = await clips.render(includes[i].name, includes[i].options);
+            fragment = await clips.render(clip, includes[i].name, includes[i].options);
             slots[i].replaceWith(fragment);
         }
 
