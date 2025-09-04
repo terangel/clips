@@ -38,7 +38,7 @@ function Clip(options = {}) {
      * @type {Object.<string, Function>}
      * @private
      */
-    this.eventListeners = {};
+    this._eventListeners = {};
 
 
     // Se definen los accesores de las propiedades anteriores.
