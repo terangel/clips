@@ -1,4 +1,11 @@
 /**
+ * Símbolo para la propiedad eventListeners.
+ * @type {symbol}
+ * @const
+ */
+const EVENT_LISTENERS = Symbol('eventListeners');
+
+/**
  * Función constructora, base de todo clip.
  * @param {Object} [options={}] Opciones de creación.
  * @constructor
@@ -34,11 +41,16 @@ function Clip(options = {}) {
     this._loadTime = 0;
 
     /**
-     * Manejadores de eventos añadidos.
-     * @type {Object.<string, Function>}
+     * Manejadores de eventos por tipo.
+     * @type {Map<string, Set<Function>>}
      * @private
      */
-    this._eventListeners = {};
+    Object.defineProperty(this, EVENT_LISTENERS, {
+        value: new Map(),
+        enumerable: false,
+        writable: false,
+        configurable: false
+    });
 
 
     // Se definen los accesores de las propiedades anteriores.
@@ -194,6 +206,13 @@ Clip.prototype.include = async function(target, options = {}) {
     // Se añade al clip padre o contenedor. Si no se especifica, se busca en los elementos ascendientes.
     (options.parentClip || _closestClip(this._root))?._appendClip(this);
 
+    // Llamada al método ready antes de insertar el elemento.
+    this.ready(options);
+
+    // Se evalua si emitir el evento "attach".
+    this.fire('')
+
+
     // Se devuelve la instancia del propio clip.
     return this;
 };
@@ -312,12 +331,127 @@ Clip.prototype.saveScroll = function() {};
 
 Clip.prototype.restoreScroll = function() {};
 
-// Events
-Clip.prototype.addEventListener = Clip.prototype.on = function(name, listener) {};
 
-Clip.prototype.removeEventListener = Clip.prototype.off = function(name, listener) {};
 
-Clip.prototype.fire = Clip.prototype.dispatchEvent = function(event, spread) {};
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> DOM-LIKE EVENT MODEL <<<
+/**
+ * Evento de Clip.
+ * @param {string} type Tipo o nombre de evento.
+ * @param {{ detail?: any, cancelable?: boolean }=} options Opciones adicionales.
+ */
+function ClipEvent(type, options) {
+    if (typeof type !== 'string' || type.length === 0) {
+        throw new TypeError('Invalid event type: a non-empty string is required.');
+    }
+    Object.defineProperties(this, {
+        type: {
+            value: type,
+            enumerable: true,
+            writable: false,
+            configurable: false
+        },
+        detail: {
+            value: options.detail,
+            enumerable: true,
+            writable: true,
+            configurable: true
+        },
+        target: {
+            value: undefined,
+            enumerable: false,
+            writable: false,
+            configurable: true
+        },
+        currentTarget: {
+            value: undefined,
+            enumerable: false,
+            writable: false,
+            configurable: true
+        }
+    });
+}
+
+/**
+ * Añade un nuevo manejador para el evento del tipo o nombre especificado.
+ * @param {string} type Tipo o nombre de evento especificado.
+ * @param {(event: Event) => void} callback Función manejadora del tipo de evento especificado a añadir.
+ */
+Clip.prototype.addEventListener = Clip.prototype.on = function(type, callback) {
+    if (typeof type !== 'string' || type.length === 0) {
+        throw new TypeError('Invalid event type: a non-empty string is required.');
+    }
+    if (typeof callback !== 'function') {
+        throw new TypeError('Invalid event listener: a callback function is required.');
+    }
+    let bucket = this[EVENT_LISTENERS].get(type);
+    if (!bucket) {
+        this[EVENT_LISTENERS].set(type, bucket = new Set());
+    }
+    bucket.add(callback);
+};
+
+/**
+ * Elimina el manejador de evento especificado.
+ * @param {string} type Tipo o nombre de evento especificado.
+ * @param {(event: Event) => void} callback Función manejadora del tipo de evento especificado a eliminar.
+ */
+Clip.prototype.removeEventListener = Clip.prototype.off = function(type, callback) {
+    if (typeof type !== 'string' || type.length === 0) {
+        throw new TypeError('Invalid event type: a non-empty string is required.');
+    }
+    if (typeof callback !== 'function') {
+        throw new TypeError('Invalid event listener: a callback function is required.');
+    }
+    const bucket = this[EVENT_LISTENERS].get(type);
+    if (bucket) {
+        bucket.delete(callback);
+        if (bucket.size === 0) {
+            this[EVENT_LISTENERS].delete(type);
+        }
+    }    
+};
+
+/**
+ * Emite el evento especificado.
+ * @param {string|ClipEvent|{ type: string, detail?: any }} Evento especificado.
+ * @param {boolean|'pre'|'pre-order'|'post'|'post-order'} [propagate] Indica si propagar el evento a los subclips 
+ * contenidos y cómo hacer el recorrido, sin en pre-orden o en post-orden (primero en los subclips).
+ */
+Clip.prototype.dispatchEvent = Clip.prototype.fire = function(event, propagate) {
+    if (!(event instanceof ClipEvent)) {
+        if (typeof event === 'string' && event.length > 0) {
+            event = new ClipEvent(event);
+        } else if (typeof event === 'object' && event !== null 
+                && typeof event.type === 'string' && event.type.length > 0) {
+            const ev = new ClipEvent(event.type, { detail: event.detail });
+            for (const key of Object.keys(event)) {
+                if (['type', 'target', 'currentTarget'].includes(key)) {
+                    console.warn(`Event property "${key}" is reserved.`);
+                    continue;
+                }
+                ev[key] = event[key];
+            }
+            event = ev;
+        } else {
+            throw new TypeError('Invalid event format: a non-empty string, an object with a string "type" property, or an instance of ClipEvent is required.');
+        }
+    }
+    const bucket = this[EVENT_LISTENERS].get(event.type); 
+    if (bucket) {
+        for (const callback of [...bucket]) {
+            try {
+                callback.call(this, event);
+            } catch (err) {
+                console.error(`Error calling event listener "${event.type}" in clip "${this.clipName}":`, err);
+            }
+        } 
+    }
+    if (spread) {
+        for (const clip of [...this.childClips]) {
+            clip.fire(event, spread);
+        }
+    }
+};
 
 
 
