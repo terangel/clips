@@ -206,12 +206,13 @@ Clip.prototype.include = async function(target, options = {}) {
     // Se añade al clip padre o contenedor. Si no se especifica, se busca en los elementos ascendientes.
     (options.parentClip || _closestClip(this._root))?._appendClip(this);
 
-    // Llamada al método ready antes de insertar el elemento.
+    // Llamada al método ready.
     this.ready(options);
 
     // Se evalua si emitir el evento "attach".
-    this.fire('')
-
+    if (this.root.isConnected) {
+       this.fire('attach') 
+    }
 
     // Se devuelve la instancia del propio clip.
     return this;
@@ -337,9 +338,9 @@ Clip.prototype.restoreScroll = function() {};
 /**
  * Evento de Clip.
  * @param {string} type Tipo o nombre de evento.
- * @param {{ detail?: any, cancelable?: boolean }=} options Opciones adicionales.
+ * @param {{ detail?: any, cancelable?: boolean }=} [options] Opciones adicionales.
  */
-function ClipEvent(type, options) {
+function ClipEvent(type, options={}) {
     if (typeof type !== 'string' || type.length === 0) {
         throw new TypeError('Invalid event type: a non-empty string is required.');
     }
@@ -427,10 +428,10 @@ function _spreadEvent(event, spread) {
 /**
  * Emite el evento especificado.
  * @param {string|ClipEvent|{ type: string, detail?: any }} Evento especificado.
- * @param {boolean|'post'} [propagate] Indica si propagar el evento a los subclips contenidos y cómo hacer el recorrido, 
- * si en pre-orden (por defecto) o en post-orden.
+ * @param {boolean|'post'} [spread] Indica si propagar el evento a los clips contenidos y cómo hacer el recorrido, 
+ * si en pre-orden (cualquier valor "truly") o en post-orden ("post").
  */
-Clip.prototype.dispatchEvent = Clip.prototype.fire = function(event, propagate) {
+Clip.prototype.dispatchEvent = Clip.prototype.fire = function(event, spread) {
     // Normalización del parámetro "event".
     if (!(event instanceof ClipEvent)) {
         if (typeof event === 'string' && event.length > 0) {

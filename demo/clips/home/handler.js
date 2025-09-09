@@ -2,6 +2,12 @@ import clips from '../../../clips.js';
 
 clips.define('home', {
 
+    ready: function() {
+        this.on('attach', () => {
+            console.log('[HOME] Attach!');
+        });
+    },
+
     renderX: function(options) {
         const template = document.createElement('template');
         template.innerHTML = '<div class="home-clip">HOME CLIP</div>';
