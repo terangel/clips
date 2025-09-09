@@ -412,12 +412,26 @@ Clip.prototype.removeEventListener = Clip.prototype.off = function(type, callbac
 };
 
 /**
+ * Propaga el evento especificado a los clips contenidos en el clip (this).
+ * @param {ClipEvent} event Evento de clip.
+ * @param {boolean|'post'} [spread=false] Indica si propagar el evento y cómo recorrer la jerarquia de clips, si en pre-orden 
+ * (cualquier valor "truly") o en post-orden (literal "post").
+ * @private
+ */
+function _spreadEvent(event, spread) {
+    for (const clip of [...this._childClips]) {
+        clip.fire(event, spread);
+    }
+}
+
+/**
  * Emite el evento especificado.
  * @param {string|ClipEvent|{ type: string, detail?: any }} Evento especificado.
- * @param {boolean|'pre'|'pre-order'|'post'|'post-order'} [propagate] Indica si propagar el evento a los subclips 
- * contenidos y cómo hacer el recorrido, sin en pre-orden o en post-orden (primero en los subclips).
+ * @param {boolean|'post'} [propagate] Indica si propagar el evento a los subclips contenidos y cómo hacer el recorrido, 
+ * si en pre-orden (por defecto) o en post-orden.
  */
 Clip.prototype.dispatchEvent = Clip.prototype.fire = function(event, propagate) {
+    // Normalización del parámetro "event".
     if (!(event instanceof ClipEvent)) {
         if (typeof event === 'string' && event.length > 0) {
             event = new ClipEvent(event);
@@ -436,23 +450,43 @@ Clip.prototype.dispatchEvent = Clip.prototype.fire = function(event, propagate) 
             throw new TypeError('Invalid event format: a non-empty string, an object with a string "type" property, or an instance of ClipEvent is required.');
         }
     }
+
+    // Solo se define la propiedad "target" en la primera llamada y se mantiene en todo el procesamiento del evento.
+    if (!('target' in event) || event.target == null) {
+        Object.defineProperty(event, 'target', {
+            value: this,
+            enumerable: true
+        });
+    }
+
+    // Se evalua si propagar el evento primero a los clips contenidos (post-order).
+    if (spread === 'post') {
+        _spreadEvent.call(this, event, spread);
+    }
+
+    // Se procesa el evento.
     const bucket = this[EVENT_LISTENERS].get(event.type); 
     if (bucket) {
+        Object.defineProperty(event, 'currentTarget', {
+            value: this,
+            writable: true,
+            enumerable: true
+        });
         for (const callback of [...bucket]) {
             try {
                 callback.call(this, event);
             } catch (err) {
                 console.error(`Error calling event listener "${event.type}" in clip "${this.clipName}":`, err);
             }
-        } 
-    }
-    if (spread) {
-        for (const clip of [...this.childClips]) {
-            clip.fire(event, spread);
         }
+        event.currentTarget = null;
+    }
+
+    // Se evalua si propagar el evento a los clips contenidos (pre-order). 
+    if (spread && spread !== 'post') {
+        _spreadEvent.call(this, event, spread);
     }
 };
-
 
 
 
