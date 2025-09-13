@@ -72,7 +72,7 @@ function Clip(options = {}) {
         childClips: {
             /** @returns {Clip[]} */
             get() {
-                return Array.from(this._childClips);
+                return [...this._childClips];
             },
             enumerable: true
         },
@@ -101,12 +101,6 @@ Clip.Position = Object.freeze({
     REPLACE:    'replace'
 });
 
-/**
- * Nombre de plantilla por defecto.
- * @type {string}
- * @constant
- */
-Clip.prototype.defaultTemplateName = 'layout';
 
 /**
  * Función de creación de nuevas instancias.
@@ -176,6 +170,9 @@ Clip.prototype.include = async function(target, options = {}) {
         });
     }
 
+    // TODO: Añadir propiedades de estilo adicionales (options.style) y clases (options.class).
+    // TODO: Evaluar si incluir el parámetro hide o hidden para ocultar el elemento inicialmente.
+
     // Se inserta el elemento en la posición especificada.
     const position = options.position ?? Clip.Position.END; 
     switch (position) {
@@ -210,15 +207,36 @@ Clip.prototype.include = async function(target, options = {}) {
     this.ready(options);
 
     // Se evalua si emitir el evento "attach".
+    window.cancelAnimationFrame(this._attachReq);
     if (this.root.isConnected) {
-       this.fire('attach') 
+        const parent = this.root.parentNode;
+        this._attachReq = window.requestAnimationFrame(() => {
+            if (!this.root || !this.root.isConnected || this.root.parentNode !== parent) {
+                return;
+            }
+            _reflow(this.root);
+            this._attachReq = window.requestAnimationFrame(() => {
+                if (!this.root || !this.root.isConnected || this.root.parentNode !== parent) {
+                    return;
+                }
+                this.fire('attach', true);
+            });
+        });
     }
+
+    // Se inicia la carga de datos adicionales.
+    this.load(options);
 
     // Se devuelve la instancia del propio clip.
     return this;
 };
 
-
+/**
+ * Nombre de plantilla por defecto.
+ * @type {string}
+ * @constant
+ */
+Clip.prototype.defaultTemplateName = 'layout';
 
 /**
  * Renderiza el clip. Por defecto intentará renderizar la plantilla por defecto (/layout.ejs) localizada en la misma 
@@ -233,12 +251,15 @@ Clip.prototype.render = async function(options) {
 /**
  * ...
  */
-Clip.prototype.load = async function(options) {};
+Clip.prototype.ready = function(options) {};
 
 /**
- * ...
+ * Carga de datos.
  */
-Clip.prototype.ready = function(options) {};
+Clip.prototype.load = async function(options) {
+    this._loadTime = Date.now();
+    this.update(options);
+};
 
 /**
  * ...
@@ -248,12 +269,34 @@ Clip.prototype.update = function(options) {};
 /**
  * ...
  */
-Clip.prototype.reload = function(options) {};
+Clip.prototype.reload = function(options) {
+    this.clear();
+    this.load(options);
+};
 
 /**
  * ...
  */
-Clip.prototype.clear = function(options) {};
+Clip.prototype.clear = function() {
+    // try {
+    //     // Se comprueba que haya raíz.
+    //     if (!this.root) {
+    //         throw new Error('No root element');
+    //     }
+    //     // Se renderiza nuevamente la vista.
+    //     /** @type {HTMLElement} */
+    //     const root = this.render(options);
+    //     // Se sustituye el contenido anterior de la vista por el nuevo sin modificar la raíz.
+    //     this._clearAll();
+    //     this.root.append(...root.childNodes);
+    //     // Se llama a la función ready de nuevo.
+    //     this.ready(this.root, options);
+    //     this.fire('ready');
+    // } catch (err) {
+    //     console.error(`Unable to update view "${this.__name}":`, err);
+    //     this._fireError(err);
+    // } 
+};
 
 /**
  * ...
@@ -491,7 +534,7 @@ Clip.prototype.dispatchEvent = Clip.prototype.fire = function(event, spread) {
 
 
 
-// ---------------------------------------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------------------------------------
 /**
  * Formato del nombre de los clips (path-like), uno o varios segmentos separados 
  * por "/", cada segmento: [A-Za-z0-9_-]+
@@ -615,7 +658,16 @@ const _closestClip = function(el) {
     return null;
 };
 
+/**
+ * Fuerza el reflow del elemento especificado.
+ * @param {Element} el Elemento especificado.
+ */
+function _reflow(el) {
+    return el.getBoundingClientRect();
+}
 
+
+// ---------------------------------------------------------------------------------------------------------------------
 /**
  * Librería clips.
  * @namespace
