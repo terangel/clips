@@ -220,12 +220,16 @@ Clip.prototype.include = async function(target, options = {}) {
                     return;
                 }
                 this.fire('attach', true);
+                // TODO: Al propagar el evento habría que asegurarse que los clips contenidos siguen enganchados, si no 
+                // habría que evitar la emisión del evento. En principio si el elemento se ha desenganchado del elemento
+                // padre, la vinculación entre clips no debería existir tampoco de forma que el evento no se propagaría,
+                // pero es importante tenerlo en cuenta.
             });
         });
     }
 
     // Se inicia la carga de datos adicionales.
-    this.load(options);
+    this._load(options);
 
     // Se devuelve la instancia del propio clip.
     return this;
@@ -249,35 +253,54 @@ Clip.prototype.render = async function(options) {
 };
 
 /**
- * ...
+ * Clip preparado después de la primera renderización. Implementa aquí la inicialización de la estructura DOM y añade el 
+ * tratamiento de eventos necesario.  
  */
 Clip.prototype.ready = function(options) {};
 
 /**
  * Carga de datos.
+ * @param {Object} options Opciones adicionales.
  */
-Clip.prototype.load = async function(options) {
+Clip.prototype.load = async function(options) {};
+
+/**
+ * Carga de datos (envoltorio). Llama a la carga, actualiza el tiempo de carga y llama a la actualización.
+ * @param {Object} options Opciones adicionales.
+ * @private
+ */
+Clip.prototype._load = async function(options) {
+    const data = await this.load(options);
     this._loadTime = Date.now();
-    this.update(options);
+    return this.update(data === undefined ? options : { ...options, data });
 };
 
 /**
- * ...
+ * Actualiza la representación visual del clip.
+ * @param {Object} options Opciones adicionales.
  */
-Clip.prototype.update = function(options) {};
+Clip.prototype.update = async function(options) {};
 
 /**
- * ...
+ * Inicia la recarga del clip.
+ * @param {Object} options Opciones adicionales.
  */
-Clip.prototype.reload = function(options) {
-    this.clear();
-    this.load(options);
+Clip.prototype.reload = async function(options) {
+    this.clear(options);
+    return this._load(options);
 };
 
 /**
- * ...
+ * Limpia el contenido del clip y llama de nuevo a la renderización.
+ * @param {Object} options Opciones adicionales.
  */
-Clip.prototype.clear = function() {
+Clip.prototype.clear = function(options) {
+    if (!this.root) {
+        throw new ClipError('No root element', ClipError.ROOT_REQUIRED);
+    }
+    const root = this.render();
+    this._clearAll();
+
     // try {
     //     // Se comprueba que haya raíz.
     //     if (!this.root) {
@@ -311,7 +334,9 @@ Clip.prototype.isVisible = function(options) {};
 /**
  * ...
  */
-Clip.prototype.remove = function(options) {};
+Clip.prototype.remove = function(options) {
+    
+};
 
 /**
  * ...
@@ -563,6 +588,24 @@ const CLIP_PREFIX = 'clip:';
  * @constant  
  */
 const WS_RE = /^\s*$/;
+
+/**
+ * Clip Error.
+ * @param {string} message
+ * @param {string} [code]
+ */
+function ClipError(message, code) {
+  this.name = 'ClipError';
+  this.message = message;
+  this.code = code;
+  Error.captureStackTrace ? Error.captureStackTrace(this, ClipError) : this.stack = (new Error(message)).stack;
+}
+ClipError.prototype = Object.create(Error.prototype);
+ClipError.prototype.constructor = ClipError;
+
+// Códigos de error.
+ClipError.ROOT_REQUIRED = 'root_required';
+
 
 /**
  * Ruta base de donde cargar los clips.
