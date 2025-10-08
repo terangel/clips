@@ -558,8 +558,8 @@ Clip.prototype.dispatchEvent = Clip.prototype.fire = function(event, spread) {
 };
 
 
-
-// ---------------------------------------------------------------------------------------------------------------------
+/* Constants
+ * ------------------------------------------------------------------------------------------------------------------ */
 /**
  * Formato del nombre de los clips (path-like), uno o varios segmentos separados 
  * por "/", cada segmento: [A-Za-z0-9_-]+
@@ -607,11 +607,80 @@ ClipError.prototype.constructor = ClipError;
 ClipError.ROOT_REQUIRED = 'root_required';
 
 
+/* Configuration
+ * ------------------------------------------------------------------------------------------------------------------ */
 /**
- * Ruta base de donde cargar los clips.
- * @type {string}
+ * Ajustes de configuración.
+ * @type {Object}
+ * @private
+ * @constant
  */
-let _basePath = '/clips';
+const _config = {
+
+    /**
+     * Indica si activar el modo debug.
+     * @type {boolean}
+     * @default false
+     */
+    debug: false,
+
+    /**
+     * Ruta base de donde cargar los clips.
+     * @type {string}
+     * @default '/clips'
+     */
+    basePath: '/clips',
+
+    /**
+     * Indica si los estilos están pre-empaquetados.
+     * @type {boolean}
+     * @default false
+     */
+    stylesBundled: false,
+
+    /**
+     * Indica si las plantillas están pre-empaquetadas.
+     * @type {boolean}
+     * @default false
+     */
+    templatesBundled: false
+};
+
+
+/* Main Object 
+ * ================================================================================================================== */
+/**
+ * Expresión regular para detectar las etiquetas EJS.
+ * @type {RegExp}
+ * @constant
+ * @private
+ */
+const _ejsTagsRE = /<%[-=]?[\s\S]*?%>/g;
+
+/**
+ * Escapa los caracteres especiales en HTML.
+ * @param {*} x Valor especificado. 
+ * @returns {string} Cadena escapada.
+ * @private
+ */
+const _esc = (x) => String(x)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#39;");
+
+/**
+ * Escapa los caracteres especiales en literales de plantilla.
+ * @param {string} str Cadena especificada. 
+ * @returns {string} Cadena escapada.
+ * @private
+ */
+const _escLit = (str) => str
+    .replace(/\\/g, "\\\\")
+    .replace(/`/g, "\\`")
+    .replace(/\$\{/g, "\\${")
+    .replace(/\r/g, "\\r");
 
 /**
  * Manejadores de Clips definidos.
@@ -633,7 +702,7 @@ const _templates = Object.create(null);
  * @return {Function} Función de la plantilla cargada.
  */
 const _loadTemplate = async function(name) {
-    const path = `${_basePath}/${name}.ejs`;
+    const path = `${_config.basePath}/${name}.ejs`;
     const res = await fetch(path, { cache: "no-store" }); // evita cache en dev
     if (!res.ok) {
         throw new Error(`Unable to load template: ${path} (${res.status})`);
@@ -641,23 +710,11 @@ const _loadTemplate = async function(name) {
     return _templates[name] = _compileTemplate(await res.text());
 }
 
-const _escLit = (str) => str
-    .replace(/\\/g, "\\\\")
-    .replace(/`/g, "\\`")
-    .replace(/\$\{/g, "\\${")
-    .replace(/\r/g, "\\r");
-
-const _ejsTagsRE = /<%[-=]?[\s\S]*?%>/g;
-
-const _esc = (x) => String(x)
-    .replace(/&/g,"&amp;")
-    .replace(/</g,"&lt;")
-    .replace(/>/g,"&gt;")
-    .replace(/"/g,"&quot;")
-    .replace(/'/g,"&#39;");
-
 /**
- * ...
+ * Compila el código fuente de una plantilla EJS.
+ * @param {string} src Código fuente de la plantilla.
+ * @returns {Function} Función de plantilla compilada.
+ * @private
  */
 const _compileTemplate = function(src) {
     let offset = 0, match;
@@ -686,6 +743,7 @@ const _compileTemplate = function(src) {
  * Mapa de asociación entre elementos e instancias de clips.
  * @type {WeakMap.<Element, Clip>}
  * @constant
+ * @private
  */
 const _elementClips = new WeakMap();
 
@@ -693,6 +751,7 @@ const _elementClips = new WeakMap();
  * Devuelve el primer clip vinculado a uno de los ascendientes del elemento especificado.
  * @param {Element} el Elemento especificado.
  * @returns {Clip|null} Clip encontrado o null si no se encuentra.
+ * @private
  */
 const _closestClip = function(el) {
     for (let n = el?.parentElement, c; n; n = n.parentElement) {
@@ -704,18 +763,32 @@ const _closestClip = function(el) {
 /**
  * Fuerza el reflow del elemento especificado.
  * @param {Element} el Elemento especificado.
+ * @private
  */
 function _reflow(el) {
     return el.getBoundingClientRect();
 }
 
 
-// ---------------------------------------------------------------------------------------------------------------------
+/* Main Object
+ * ================================================================================================================== */
+
 /**
- * Librería clips.
+ * Objeto principal.
  * @namespace
  */
-const clips = {    
+const clips = {
+
+    /**
+     * Actualiza los ajustes de configuración especificados.
+     * @param {Object} config Objeto de configuración.
+     * @param {boolean} [config.debug=false] Indica si activar el modo debug.
+     * @param {boolean} [config.stylesBundled=false] Indica si los estilos están pre-empaquetados.
+     * @param {boolean} [config.templatesBundled=false] Indica si las plantillas están pre-empaquetadas.
+     */
+    setup: function(config) {
+        Object.assign(_config, config);
+    },
     
     /**
      * Define un nuevo tipo de clip.
@@ -828,7 +901,7 @@ const clips = {
             throw new TypeError('Invalid clip name: non-empty string required.');
         }
         if (!_handlers[name]) {
-            const url = `${_basePath}/${name}/handler.js`;
+            const url = `${_config.basePath}/${name}/handler.js`;
             try {
                 await import(url);
             } catch (err) {
@@ -936,7 +1009,7 @@ const clips = {
         if (typeof path === 'string') {
             path = path.trim().replace(/\/$/, '');
         }
-        _basePath = path;
+        _config.basePath = path;
     }
 
 };

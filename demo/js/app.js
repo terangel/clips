@@ -1,6 +1,8 @@
 import clips from '../../clips.js';
 
-clips.basePath(new URL('../clips', import.meta.url));
+clips.setup({
+    basePath: new URL('../clips', import.meta.url)
+});
 
 const app = {
 
