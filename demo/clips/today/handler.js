@@ -2,11 +2,17 @@ import clips from '../../../clips.js';
 
 clips.define('today', {
 
+    styles: /*css*/`
+        today-clip {
+            display: block
+        }
+    `,
+
     render: function(options) {
         return /*html*/`
-            <div class="today-clip clip">
+            <today-clip>
                 TODAY
-            </div>
+            </today-clip>
         `;
     },
 

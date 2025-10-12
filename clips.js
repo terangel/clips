@@ -1,5 +1,10 @@
+
+
+
+/* Clip prototype
+ * ================================================================================================================== */
 /**
- * Símbolo para la propiedad eventListeners.
+ * Property symbol "eventListeners" of Clip object.
  * @type {symbol}
  * @const
  */
@@ -88,10 +93,13 @@ function Clip(options = {}) {
     this.create(options);
 }
 
+
+/* Constants of Clip
+ * ------------------------------------------------------------------------------------------------------------------ */
 /**
  * Diferentes posiciones en las que incluir un clip en el DOM con respecto al elemento objetivo.
- * @readonly
  * @enum {string}
+ * @constant
  */
 Clip.Position = Object.freeze({
     START:      'start',
@@ -102,6 +110,25 @@ Clip.Position = Object.freeze({
 });
 
 
+/**
+ * Nombre de plantilla por defecto.
+ * @type {string}
+ * @constant
+ */
+Clip.prototype.defaultTemplateName = 'layout';
+// TODO: Porqué no definirla a nivel de Clip?
+
+/**
+ * Nombre de hoja de estilos por defecto.
+ * @type {string}
+ * @constant
+ */
+Clip.prototype.defaultStylesName = 'styles';
+// TODO: Porqué no definirla a nivel de Clip?
+
+
+/* Prototype functions
+ * ------------------------------------------------------------------------------------------------------------------ */
 /**
  * Función de creación de nuevas instancias.
  * @param {Object} options Opciones de creación.
@@ -236,13 +263,6 @@ Clip.prototype.include = async function(target, options = {}) {
 };
 
 /**
- * Nombre de plantilla por defecto.
- * @type {string}
- * @constant
- */
-Clip.prototype.defaultTemplateName = 'layout';
-
-/**
  * Renderiza el clip. Por defecto intentará renderizar la plantilla por defecto (/layout.ejs) localizada en la misma 
  * ubicación que el manejador del clip. 
  * @param {Object} [options] Opciones adicionales de renderizado.
@@ -334,16 +354,7 @@ Clip.prototype.isVisible = function(options) {};
 /**
  * ...
  */
-Clip.prototype.remove = function(options) {
-    
-};
-
-/**
- * ...
- */
-Clip.prototype.destroy = function(options) {};
-
-
+Clip.prototype.remove = function(options) {};
 
 /**
  * Añade un nuevo subclip.
@@ -386,7 +397,6 @@ Clip.prototype.removeAll = function() {
     // uix.empty(this._root);
 };
 
-
 /**
  * ...
  */
@@ -401,12 +411,12 @@ Clip.prototype.saveScroll = function() {};
 Clip.prototype.restoreScroll = function() {};
 
 
-
-// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> DOM-LIKE EVENT MODEL <<<
+/* DOM-Like Event Model
+ * ================================================================================================================== */
 /**
- * Evento de Clip.
- * @param {string} type Tipo o nombre de evento.
- * @param {{ detail?: any, cancelable?: boolean }=} [options] Opciones adicionales.
+ * Clip event.
+ * @param {string} type Event type.
+ * @param {{ detail?: any, cancelable?: boolean }=} [options] Options.
  */
 function ClipEvent(type, options={}) {
     if (typeof type !== 'string' || type.length === 0) {
@@ -481,19 +491,6 @@ Clip.prototype.removeEventListener = Clip.prototype.off = function(type, callbac
 };
 
 /**
- * Propaga el evento especificado a los clips contenidos en el clip (this).
- * @param {ClipEvent} event Evento de clip.
- * @param {boolean|'post'} [spread=false] Indica si propagar el evento y cómo recorrer la jerarquia de clips, si en pre-orden 
- * (cualquier valor "truly") o en post-orden (literal "post").
- * @private
- */
-function _spreadEvent(event, spread) {
-    for (const clip of [...this._childClips]) {
-        clip.fire(event, spread);
-    }
-}
-
-/**
  * Emite el evento especificado.
  * @param {string|ClipEvent|{ type: string, detail?: any }} Evento especificado.
  * @param {boolean|'post'} [spread] Indica si propagar el evento a los clips contenidos y cómo hacer el recorrido, 
@@ -557,6 +554,19 @@ Clip.prototype.dispatchEvent = Clip.prototype.fire = function(event, spread) {
     }
 };
 
+/**
+ * Propaga el evento especificado a los clips contenidos en el clip (this).
+ * @param {ClipEvent} event Evento de clip.
+ * @param {boolean|'post'} [spread=false] Indica si propagar el evento y cómo recorrer la jerarquia de clips, si en pre-orden 
+ * (cualquier valor "truly") o en post-orden (literal "post").
+ * @private
+ */
+function _spreadEvent(event, spread) {
+    for (const clip of [...this._childClips]) {
+        clip.fire(event, spread);
+    }
+}
+
 
 /* Constants
  * ------------------------------------------------------------------------------------------------------------------ */
@@ -589,6 +599,7 @@ const CLIP_PREFIX = 'clip:';
  */
 const WS_RE = /^\s*$/;
 
+/* ------------------------------------------------------------------------------------------------------------------ */
 /**
  * Clip Error.
  * @param {string} message
@@ -607,47 +618,7 @@ ClipError.prototype.constructor = ClipError;
 ClipError.ROOT_REQUIRED = 'root_required';
 
 
-/* Configuration
- * ------------------------------------------------------------------------------------------------------------------ */
-/**
- * Ajustes de configuración.
- * @type {Object}
- * @private
- * @constant
- */
-const _config = {
-
-    /**
-     * Indica si activar el modo debug.
-     * @type {boolean}
-     * @default false
-     */
-    debug: false,
-
-    /**
-     * Ruta base de donde cargar los clips.
-     * @type {string}
-     * @default '/clips'
-     */
-    basePath: '/clips',
-
-    /**
-     * Indica si los estilos están pre-empaquetados.
-     * @type {boolean}
-     * @default false
-     */
-    stylesBundled: false,
-
-    /**
-     * Indica si las plantillas están pre-empaquetadas.
-     * @type {boolean}
-     * @default false
-     */
-    templatesBundled: false
-};
-
-
-/* Main Object 
+/* Template functions 
  * ================================================================================================================== */
 /**
  * Expresión regular para detectar las etiquetas EJS.
@@ -683,26 +654,12 @@ const _escLit = (str) => str
     .replace(/\r/g, "\\r");
 
 /**
- * Manejadores de Clips definidos.
- * @type {Object.<string, Clip>}
- * @constant
- */
-const _handlers = Object.create(null);
-
-/**
- * Funciones de plantilla añadidas.
- * @type {Object.<string, (...) => HTMLElement}
- * @constant
- */
-const _templates = Object.create(null);
-
-/**
  * Carga la plantilla especificada.
- * @param {string} Nombre o ruta de la plantilla especificada.
+ * @param {string} name Nombre o ruta de la plantilla especificada.
  * @return {Function} Función de la plantilla cargada.
  */
 const _loadTemplate = async function(name) {
-    const path = `${_config.basePath}/${name}.ejs`;
+    const path = `${_settings.basePath}/${name}.ejs`;
     const res = await fetch(path, { cache: "no-store" }); // evita cache en dev
     if (!res.ok) {
         throw new Error(`Unable to load template: ${path} (${res.status})`);
@@ -740,12 +697,82 @@ const _compileTemplate = function(src) {
 }
 
 /**
+ * Fuerza el reflow del elemento especificado.
+ * @param {Element} el Elemento especificado.
+ * @private
+ */
+function _reflow(el) {
+    return el.getBoundingClientRect();
+}
+
+
+/* Main Object 
+ * ================================================================================================================== */
+/**
+ * Settings.
+ * @type {Object}
+ * @private
+ * @constant
+ */
+const _settings = {
+
+    /**
+     * Indica si activar el modo debug.
+     * @type {boolean}
+     * @default false
+     */
+    debug: false,
+
+    /**
+     * Ruta base donde se localiza la definición de los clips.
+     * @type {string}
+     * @default '/clips'
+     */
+    basePath: '/clips',
+
+    /**
+     * Indica si los estilos están pre-empaquetados.
+     * @type {boolean}
+     * @default false
+     */
+    stylesBundled: false,
+
+    /**
+     * Indica si las plantillas están pre-empaquetadas.
+     * @type {boolean}
+     * @default false
+     */
+    templatesBundled: false
+};
+
+/**
+ * Manejadores de Clips definidos.
+ * @type {Object.<string, Clip>}
+ * @constant
+ */
+const _handlers = Object.create(null);
+
+/**
+ * Funciones de plantilla añadidas.
+ * @type {Object.<string, (...) => HTMLElement}
+ * @constant
+ */
+const _templates = Object.create(null);
+
+/**
  * Mapa de asociación entre elementos e instancias de clips.
  * @type {WeakMap.<Element, Clip>}
  * @constant
  * @private
  */
 const _elementClips = new WeakMap();
+
+/**
+ * Referencia al elemento de estilos donde se importan los estilos de los diferentes clips definidos.
+ * @type {HTMLStyleElement}
+ * @private
+ */
+let _styleElement;
 
 /**
  * Devuelve el primer clip vinculado a uno de los ascendientes del elemento especificado.
@@ -761,33 +788,84 @@ const _closestClip = function(el) {
 };
 
 /**
- * Fuerza el reflow del elemento especificado.
- * @param {Element} el Elemento especificado.
- * @private
+ * Importa los estilos del clip especificado.
+ * @param {typeof Clip} clipDef Definición del clipClip definido. 
  */
-function _reflow(el) {
-    return el.getBoundingClientRect();
-}
-
-
-/* Main Object
- * ================================================================================================================== */
+const _importClipStyles = async function(clipDef) {
+    // Los estilos se pueden definir como propiedad o como función.
+    let styles = clipDef.prototype.styles;
+    if (typeof styles === 'function') {
+        styles = styles();
+    }
+    // Si se definen como elemento de tipo <style>, se añaden directamente al head.
+    if (styles instanceof HTMLStyleElement) {
+        document.head.appendChild(styles);
+        return;
+    }
+    // Si se definen los estilos como CSSStyleSheet, se añaden a las hojas de estilo adoptadas.
+    if (styles instanceof CSSStyleSheet) {
+        document.adoptedStyleSheets = [
+            ...document.adoptedStyleSheets,
+            styles
+        ];
+        return;
+    }
+    // Si el clip no define estilos en código y no están empaquetados, se intenta cargar la hoja de estilos por defecto 
+    // ubicada en la misma localización que el clip.
+    if (!styles && !_settings.stylesBundled) {
+        try {
+            styles = await _loadStyles(`${clipDef.prototype.clipName}/${clipDef.prototype.defaultStylesName}`);        
+        } catch (err) {
+            // Se ignoran los errores de carga.
+            if (_settings.debug) {
+                console.warn(`Unable to load styles for clip "${clipDef.prototype.clipName}":`, err);
+            }
+        }
+    }
+    // Finalmente, si se han definido estilos, se importan.
+    if (typeof styles === 'string' && (styles = styles.trim())) {
+        if (!_styleElement) {
+            _styleElement = document.createElement('style');
+            _styleElement.id = 'clips-styles';
+            _styleElement.setAttribute('data-source', 'clips');
+            document.head.appendChild(_styleElement);
+        }
+        _styleElement.textContent += `\n/* ${clipDef.prototype.clipName} */\n${styles}\n`;
+    }
+};
 
 /**
- * Objeto principal.
+ * Carga la hoja de estilos vinculada por nombre y localización con el clip especificado.
+ * @param {typeof Clip} clipType Referencia al tipo de clip especificado.
+ */
+const _loadStyles = async function(name) {
+    const res = await fetch(`${_settings.basePath}/${name}.css`, {
+        // TODO: Evita cache solo en debug?
+        cache: "no-store"
+    });
+    if (!res.ok) {
+        throw new Error(`Unable to load styles: ${path} (${res.status})`);
+    }
+    return await res.text();
+};
+
+
+/**
+ * Main Object.
  * @namespace
  */
 const clips = {
 
     /**
      * Actualiza los ajustes de configuración especificados.
-     * @param {Object} config Objeto de configuración.
-     * @param {boolean} [config.debug=false] Indica si activar el modo debug.
-     * @param {boolean} [config.stylesBundled=false] Indica si los estilos están pre-empaquetados.
-     * @param {boolean} [config.templatesBundled=false] Indica si las plantillas están pre-empaquetadas.
+     * @param {Object} settings Ajustes de configuración.
+     * @param {boolean} [settings.debug] Indica si activar el modo debug.
+     * @param {string}  [settings.basePath] Ruta base donde se localiza la definición de los clips.
+     * @param {boolean} [settings.stylesBundled] Indica si los estilos están pre-empaquetados.
+     * @param {boolean} [settings.templatesBundled] Indica si las plantillas están pre-empaquetadas.
      */
-    setup: function(config) {
-        Object.assign(_config, config);
+    setup: function(settings) {
+        Object.assign(_settings, settings);
     },
     
     /**
@@ -886,6 +964,9 @@ const clips = {
             enumerable: false
         });
 
+        // Se importan los estilos definidos por el clip.
+        _importClipStyles(C.prototype);
+
         // Se devuelve el constructor del nuevo clip.
         return _handlers[name] = C;
     },
@@ -901,7 +982,7 @@ const clips = {
             throw new TypeError('Invalid clip name: non-empty string required.');
         }
         if (!_handlers[name]) {
-            const url = `${_config.basePath}/${name}/handler.js`;
+            const url = `${_settings.basePath}/${name}/handler.js`;
             try {
                 await import(url);
             } catch (err) {
@@ -918,29 +999,33 @@ const clips = {
     },
 
     /**
-     * Renderiza la plantilla especificada por nombre en el contexto del clip actual.
+     * Renderiza la plantilla especificada por nombre en el contexto del clip especificado.
      * @param {Clip} clip Referencia al clip actual.
      * @param {string} name Nombre o ruta de la plantilla a renderizar.
      * @param {Object} [options] Opciones adicionales de renderizado.
      * @return {DocumentFragment} Fragmento generado. 
      */
     render: async function(clip, name, options) {
-        let templateFunc = _templates[name];
-        // Si no existe la plantilla se intenta cargar.
-        if (!templateFunc) {
-            templateFunc = await _loadTemplate(name);
+        // Se comprueba si la función de plantilla está definida.
+        let templateFn = _templates[name];
+        if (!templateFn && !_settings.templatesBundled) {
+            // Si no existe la plantilla, y no se han pre-empaquetado las plantillas, se intenta cargar.
+            templateFn = await _loadTemplate(name);
+        }
+        if (!templateFn) {
+            throw new Error(`Template "${name}" not found.`);
         }
         
         /** 
          * Includes añadidos durante la ejecución de la plantilla.
          * Cada entrada contiene el nombre y las opciones especificadas.
-         * @type {Array<{name: string, options?: any}>}
+         * @type {{name: string, options?: any}[]}
          */
         const includes = [];
 
         /** 
-         * Contexto local pasado a la función de plantilla.
-         * Contiene el buffer de salida y las utilidades básicas (escape, print, include...).
+         * Contexto local pasado a la función de plantilla. Contiene el buffer de salida y las utilidades básicas 
+         * (escape, print, include...).
          * @type {{
          *  out: string[],
          *  escape: (value: any) => string,
@@ -961,7 +1046,7 @@ const clips = {
         };
 
         // Se ejecuta la plantilla con el contexto anterior.
-        templateFunc.call(clip, locals);
+        templateFn.call(clip, locals);
 
         // Se crea un elemento "template" para parsear el código HTML generado.
         const template = document.createElement('template');
@@ -1009,13 +1094,13 @@ const clips = {
         if (typeof path === 'string') {
             path = path.trim().replace(/\/$/, '');
         }
-        _config.basePath = path;
+        _settings.basePath = path;
     }
 
 };
 
 
-// Exponer globalmente solo en el contexto del navegador.
+// Se expone globalmente como propiedad de window.
 if (typeof window !== 'undefined') {
   window.clips = clips;
 }
