@@ -1,11 +1,18 @@
 [
     {
+        "status": "completed",
         "description": "20 Sentadillas" 
     },
     {
+        "status": "completed",
         "description": "Crear informe de gastos"
     },
     {
+        "status": "completed",
         "description": "Llamar a Carlos"
+    },
+    {
+        "status": "completed",
+        "description": "Preparar diseño de las fichas del Today"
     }
 ]

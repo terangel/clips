@@ -4,7 +4,31 @@ clips.define('today', {
 
     styles: /*css*/`
         today-clip {
-            display: block
+            display: block;
+            padding: 16px;
+        }
+
+        .today-item {
+            padding: 8px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            background-color: #2228;
+        }
+
+        .today-item__top-bar {
+            display: block;
+            height: 24px;
+        }
+
+        .today-item__mark {
+            display: block;
+            width: 16px;
+            height: 16px;
+            background-color: #2228;
+        }
+            
+        .today-item__body {
+            
         }
     `,
 
@@ -28,7 +52,15 @@ clips.define('today', {
         this.root.replaceChildren();
         // Generamos las fichas.
         for (const item of options.data) {
-            this.root.innerHTML += `<div class="today-item">${item.description}</div>`;
+            this.root.innerHTML += `
+                <div class="today-item">
+                    <div class="today-item__top-bar">
+                        <div class="today-item__mark${item.status === 'completed' ? " today-item__mark--on" : ""}"></div>
+                    </div>
+                    <div class="today-item__body">
+                        ${item.description}
+                    </div>                    
+                </div>`;
         }
     }
     

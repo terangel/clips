@@ -965,7 +965,7 @@ const clips = {
         });
 
         // Se importan los estilos definidos por el clip.
-        _importClipStyles(C.prototype);
+        _importClipStyles(C);
 
         // Se devuelve el constructor del nuevo clip.
         return _handlers[name] = C;
