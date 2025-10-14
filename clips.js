@@ -1,6 +1,3 @@
-
-
-
 /* Clip prototype
  * ================================================================================================================== */
 /**
@@ -789,11 +786,11 @@ const _closestClip = function(el) {
 
 /**
  * Importa los estilos del clip especificado.
- * @param {typeof Clip} clipDef Definición del clipClip definido. 
+ * @param {string} name Nombre del clip.
+ * @param {string|function|HTMLStyleElement|CSSStyleSheet} styles Estilos del clip. 
  */
-const _importClipStyles = async function(clipDef) {
+const _importClipStyles = async function(name, styles) {
     // Los estilos se pueden definir como propiedad o como función.
-    let styles = clipDef.prototype.styles;
     if (typeof styles === 'function') {
         styles = styles();
     }
@@ -812,13 +809,20 @@ const _importClipStyles = async function(clipDef) {
     }
     // Si el clip no define estilos en código y no están empaquetados, se intenta cargar la hoja de estilos por defecto 
     // ubicada en la misma localización que el clip.
-    if (!styles && !_settings.stylesBundled) {
+    if (!styles && !_settings.stylesBundled && _handlers[name]) {
+        const path = `${_settings.basePath}/${name}/${_handlers[name].prototype.defaultStylesName}.css`;
         try {
-            styles = await _loadStyles(`${clipDef.prototype.clipName}/${clipDef.prototype.defaultStylesName}`);        
+            const res = await fetch(path, {
+                cache: _settings.debug ? 'no-store' : null
+            });
+            if (!res.ok) {
+                throw new Error(`Failed to fetch styles (${res.status}): ${path}`);
+            }
+            styles = await res.text();
         } catch (err) {
             // Se ignoran los errores de carga.
             if (_settings.debug) {
-                console.warn(`Unable to load styles for clip "${clipDef.prototype.clipName}":`, err);
+                console.warn(`Could not load styles for clip "${name}":`, err);
             }
         }
     }
@@ -830,7 +834,7 @@ const _importClipStyles = async function(clipDef) {
             _styleElement.setAttribute('data-source', 'clips');
             document.head.appendChild(_styleElement);
         }
-        _styleElement.textContent += `\n/* ${clipDef.prototype.clipName} */\n${styles}\n`;
+        _styleElement.textContent += `\n/* ${name} */\n${styles}\n`;
     }
 };
 
@@ -873,9 +877,10 @@ const clips = {
      * @param {string} name Nombre del clip (único).
      * @param {string|Object} [base] Nombre del clip base o prototipo del nuevo clip.
      * @param {Object} proto Prototipo del clip.
+     * @param {string} [styles] Estilos del clip.
      * @return {new (options: ClipOptions) => Clip} Constructor del nuevo tipo de clip.
      */
-    define: function(name, base, proto) {
+    define: function(name, base, proto, styles) {
         // Nombre del clip.
         if (typeof name !== 'string') {
             throw new TypeError('Invalid clip name: string required.');
@@ -896,6 +901,7 @@ const clips = {
 
         // Nombre del tipo de clip base.
         if (typeof base === 'object' && base !== null) {
+            styles = proto;
             proto = base;
             base = null;
         } else if (typeof base === 'string') {
@@ -964,11 +970,16 @@ const clips = {
             enumerable: false
         });
 
-        // Se importan los estilos definidos por el clip.
-        _importClipStyles(C);
+        // Se guarda el constructor por nombre.
+        _handlers[name] = C;
 
+        // Si se han definido estilos se importan.
+        if (styles != null || proto.styles != null) {
+            _importClipStyles(name, styles || proto.styles);
+        }
+        
         // Se devuelve el constructor del nuevo clip.
-        return _handlers[name] = C;
+        return C;
     },
 
     /**
@@ -1069,6 +1080,18 @@ const clips = {
 
         // Se devuelve el contenido generado.
         return template.content;
+    },
+
+    /**
+     * Incluye un clip o una plantilla en el elemento o selector especificado.
+     * @param {string} name Nombre del clip o plantilla especificado.
+     * @param {Element} target Elemento especificado. 
+     * @param {Object} [options] Opciones adicionales.
+     * @see Clip#create
+     * @see Clip#include
+     */
+    include: async function(name, target, options) {
+        return (await this.create(name, options)).include(target, options); 
     },
 
     /**

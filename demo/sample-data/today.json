@@ -4,15 +4,15 @@
         "description": "20 Sentadillas" 
     },
     {
-        "status": "completed",
+        "status": "pending",
         "description": "Crear informe de gastos"
     },
     {
-        "status": "completed",
+        "status": "pending",
         "description": "Llamar a Carlos"
     },
     {
-        "status": "completed",
+        "status": "pending",
         "description": "Preparar diseño de las fichas del Today"
     }
 ]

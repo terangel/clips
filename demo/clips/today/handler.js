@@ -2,44 +2,26 @@ import clips from '../../../clips.js';
 
 clips.define('today', {
 
-    styles: /*css*/`
-        today-clip {
-            display: block;
-            padding: 16px;
-        }
-
-        .today-item {
-            padding: 8px;
-            border-radius: 4px;
-            margin-bottom: 8px;
-            background-color: #2228;
-        }
-
-        .today-item__top-bar {
-            display: block;
-            height: 24px;
-        }
-
-        .today-item__mark {
-            display: block;
-            width: 16px;
-            height: 16px;
-            background-color: #2228;
-        }
-            
-        .today-item__body {
-            
-        }
-    `,
-
+    /**
+     * @see Clip#render 
+     */
     render: function(options) {
         return /*html*/`
             <today-clip>
-                TODAY
+                <div class="today-clip__head">
+                    <div class="title">TODAY</div>
+                    <div class="date">${new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase()}</div> 
+                </div>
+                <div class="today-clip__body">
+                    <!-- TODO: Representar esquéleto de carga -->
+                </div>
             </today-clip>
         `;
     },
 
+    /**
+     * @see Clip#load 
+     */
     load: async function(options) {
         const res = await fetch('sample-data/today.json');
         if (res.ok) {
@@ -47,21 +29,36 @@ clips.define('today', {
         }
     },
 
+    /**
+     * @see Clip#update 
+     */
     update: function(options) {
-        // Vaciamos el contenido del elemento raíz.
-        this.root.replaceChildren();
-        // Generamos las fichas.
+        const bodyEl = this.root.querySelector('.today-clip__body');
+        bodyEl.replaceChildren();
         for (const item of options.data) {
-            this.root.innerHTML += `
-                <div class="today-item">
-                    <div class="today-item__top-bar">
-                        <div class="today-item__mark${item.status === 'completed' ? " today-item__mark--on" : ""}"></div>
-                    </div>
-                    <div class="today-item__body">
-                        ${item.description}
-                    </div>                    
-                </div>`;
+            clips.include('card', bodyEl, { data: item });
         }
     }
     
-});
+}, /*css*/`
+    today-clip {
+        display: block;
+        padding: 16px;
+    }
+
+    .today-clip__head {
+        margin-bottom: 16px;
+
+        > .title {
+            color: #ff0;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        > .date {
+            color: #fffa;
+            font-size: 14px;            
+        }
+    }
+
+`);
