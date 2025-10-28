@@ -1,4 +1,4 @@
-import clips from '../../../clips.js';
+import clips from '../../../../clips.js';
 
 clips.define('card', {
 
@@ -20,6 +20,7 @@ clips.define('card', {
     card-clip {
         display: block;
         padding: 8px;
+        border-radius: 4px;
         margin-bottom: 16px;
         background-color: #0002;
     }

@@ -1,4 +1,4 @@
-import clips from '../../../clips.js';
+import clips from '../../../../clips.js';
 
 clips.define('today', {
 
