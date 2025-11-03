@@ -1,0 +1,42 @@
+[
+    {
+        "id": "chl_123",
+        "name": "500 Sentadillas",
+        "description": "50 sentadillas durante 10 días.",
+        "duration": "10d",
+        "author": {
+            "id": "usr_123",
+            "name": "Tommy",
+            "picture": "https://ware.do/pics/users/usr_123/profile.jpg"
+        },
+        "activities": [
+            {
+                "id": "act_123",
+                "dayNumber": 1,
+                "description": "50 Sentadillas",
+                "thumbnail": "https://ware.do/activities/act_123/thumbnail/001.jpg",
+                "video": "https://ware.do/activities/act_123/video/001.mp4",
+                "status": "completed"
+            },
+            {
+                "id": "act_124",
+                "dayNumber": 1,
+                "description": "50 Sentadillas",
+                "thumbnail": "https://ware.do/activities/act_124/thumbnail/001.jpg",
+                "video": "https://ware.do/activities/act_124/video/001.mp4",
+                "status": "completed"
+            },
+            {
+                "id": "act_125",
+                "dayNumber": 1,
+                "description": "50 Sentadillas",
+                "thumbnail": "https://ware.do/activities/act_125/thumbnail/001.jpg",
+                "video": "https://ware.do/activities/act_125/video/001.mp4",
+                "status": "completed"
+            }
+        ],
+        "tags": ["fitness"],
+        "created_at": "2024-06-01T10:00:00Z",
+        "updated_at": "2024-06-05T15:30:00Z"
+    }
+]

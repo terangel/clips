@@ -1,0 +1,140 @@
+[
+    {
+        "challenge": {
+            "id": "chl_123",
+            "name": "150 Sentadillas",
+            "description": "150 sentadillas en 3 días.",
+            "duration": "10d",
+            "difficulty": "easy",
+            "author": {
+                "id": "usr_123",
+                "name": "Tommy",
+                "picture": "https://ware.do/pics/users/usr_123/profile.jpg"
+            },
+            "activities": [
+                {
+                    "id": "act_123",
+                    "description": "50 Sentadillas",
+                    "thumbnail": "https://ware.do/activities/act_123/thumbnail/001.jpg",
+                    "video": "https://ware.do/activities/act_123/video/001.mp4"
+                },
+                {
+                    "id": "act_124",
+                    "description": "Estiramientos de hombro",
+                    "thumbnail": "https://ware.do/activities/act_124/thumbnail/001.jpg",
+                    "video": "https://ware.do/activities/act_124/video/001.mp4"
+                },
+                {
+                    "id": "act_125",
+                    "description": "Nadar 15 minutos",
+                    "thumbnail": "https://ware.do/activities/act_125/thumbnail/001.jpg",
+                    "video": "https://ware.do/activities/act_125/video/001.mp4"
+                }
+            ],
+            "days": [
+                {
+                    "dayNumber": 1,
+                    "activities": [
+                        {
+                            "id": "act_123",
+                            "mandatory": true
+                        }
+                    ]
+                },
+                {
+                    "dayNumber": 2,
+                    "activities": [
+                        {
+                            "id": "act_123",
+                            "mandatory": true
+                        },
+                        {
+                            "id": "act_124",
+                            "mandatory": false
+                        },
+                        {
+                            "id": "act_125",
+                            "mandatory": true
+                        }
+                    ]
+                },
+                {
+                    "dayNumber": 3,
+                    "activities": [
+                        {
+                            "id": "act_123",
+                            "mandatory": true
+                        }
+                    ]
+                }
+            ],
+            "carryOver": "auto",
+            "tags": ["fitness"],
+            "created_at": "2024-06-01T10:00:00Z",
+            "updated_at": "2024-06-05T15:30:00Z"
+        },
+        "progress": {
+            "status": "active",
+            "startedAt": "2025-10-01T12:00:00Z",
+            "completedAt": null,
+            "lastUpdatedAt": "2025-10-02T13:30:00Z",
+            "currentDay": 3,
+            "pastDays": [
+                {
+                    "dayNumber": 1,
+                    "activities": [
+                        {
+                            "id": "act_123",
+                            "completed": true,
+                            "completedAt": "2025-10-01T12:45:00Z"
+                        }
+                    ]
+                },
+                {
+                    "dayNumber": 2,
+                    "activities": [
+                        {
+                            "id": "act_123",
+                            "completed": true,
+                            "completedAt": "2025-10-02T13:00:00Z"
+                        },
+                        {
+                            "id": "act_124",
+                            "completed": false,
+                            "completedAt": null
+                        },
+                        {
+                            "id": "act_125",
+                            "completed": false,
+                            "completedAt": null
+                        }
+                    ]
+                }
+            ],
+            "nextDays": [
+                {
+                    "dayNumber": 3,
+                    "availableAt": "2025-11-04T10:00:00Z",
+                    "activities": [
+                        {
+                            "id": "act_123",
+                            "completed": false,
+                            "completedAt": null
+                        },
+                        {
+                            "id": "act_125",
+                            "completed": false,
+                            "completedAt": null,
+                            "carryOver": true
+                        }
+                    ]
+                }
+            ],
+            "remainingDays": 1,
+            "totalDays": 3,
+            "completedActivities": 2,
+            "totalActivities": 5,
+            "skippedActivities": 0
+        }
+    }
+]
