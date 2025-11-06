@@ -1,34 +1,68 @@
 [
     {
         "challenge": {
-            "id": "chl_123",
-            "name": "150 Sentadillas",
-            "description": "150 sentadillas en 3 días.",
+            "id": "chl_001",
+            "name": "Strong Legs at Home",
+            "description": "<p>This 5-day training plan is designed to strengthen your lower body using only your own body weight — no equipment needed. The workouts focus on your glutes, quads, hamstrings, and calves, while also improving balance, joint stability, and overall movement control. Each session lasts 20-30 minutes and can be done at home in a small space.</p><p>The plan progresses gradually by repeating basic movement patterns such as squats, lunges, bridges, and hip hinges, helping you build a strong foundation without overloading your joints. The exercises are performed in a slow and controlled manner to maximize muscle activation and avoid strain. Weekly progression comes from increasing repetitions or sets at your own pace.</p><p>This plan is suitable for beginners and intermediate levels, and doesn't require any prior experience. All you need is consistency — and your own body.</p>",
             "duration": "10d",
             "difficulty": "easy",
+            "introVideo": "https://ware.do/challenges/chl_001/video/intro.mp4",
+            "status": "published",
             "author": {
                 "id": "usr_123",
                 "name": "Tommy",
                 "picture": "https://ware.do/pics/users/usr_123/profile.jpg"
-            },
+            },            
             "activities": [
                 {
-                    "id": "act_123",
-                    "description": "50 Sentadillas",
-                    "thumbnail": "https://ware.do/activities/act_123/thumbnail/001.jpg",
-                    "video": "https://ware.do/activities/act_123/video/001.mp4"
+                    "id": "act_001",
+                    "name": "Bodyweight Squats",
+                    "description": "Stand with feet shoulder-width apart. Lower your body by bending your knees and hips, keeping your back straight. Go as low as comfortable, then return to standing.",
+                    "repetitions": "12-15",
+                    "sets": 3,
+                    "rest": "60s",
+                    "video": "https://ware.do/activities/act_001/video/001.mp4",
+                    "thumbnail": "https://ware.do/activities/act_001/thumbnail/001.jpg"
                 },
                 {
-                    "id": "act_124",
-                    "description": "Estiramientos de hombro",
-                    "thumbnail": "https://ware.do/activities/act_124/thumbnail/001.jpg",
-                    "video": "https://ware.do/activities/act_124/video/001.mp4"
+                    "id": "act_002",
+                    "name": "Glute Bridge",
+                    "description": "Lie on your back with knees bent and feet flat on the floor. Lift your hips towards the ceiling by squeezing your glutes, then lower back down.",
+                    "repetitions": "15-20",
+                    "sets": 3,
+                    "rest": "45s",
+                    "video": "https://ware.do/activities/act_002/video/001.mp4",
+                    "thumbnail": "https://ware.do/activities/act_002/thumbnail/001.jpg"
                 },
                 {
-                    "id": "act_125",
-                    "description": "Nadar 15 minutos",
-                    "thumbnail": "https://ware.do/activities/act_125/thumbnail/001.jpg",
-                    "video": "https://ware.do/activities/act_125/video/001.mp4"
+                    "id": "act_003",
+                    "name": "Alternating Reverse Lunges",
+                    "description": "Stand tall, step back with one foot and lower your body until both knees are bent at 90 degrees. Push through the front heel to return to standing and repeat on the other side.",
+                    "repetitions": "10-12 per leg",
+                    "sets": 3,
+                    "rest": "60s",
+                    "video": "https://ware.do/activities/act_003/video/001.mp4",
+                    "thumbnail": "https://ware.do/activities/act_003/thumbnail/001.jpg"
+                },
+                {
+                    "id": "act_004",
+                    "name": "Standing Calf Raises",
+                    "description": "Stand with feet hip-width apart. Raise your heels off the ground as high as possible, then lower back down slowly.",
+                    "repetitions": "20",
+                    "sets": 2,
+                    "rest": "45s",
+                    "video": "https://ware.do/activities/act_004/video/001.mp4",
+                    "thumbnail": "https://ware.do/activities/act_004/thumbnail/001.jpg"
+                },
+                {
+                    "id": "act_005",
+                    "name": "Single-Leg Glute Bridge",
+                    "description": "Lie on your back with one knee bent and the other leg extended. Lift your hips by squeezing the glute of the bent leg, then lower back down. Switch legs after completing the set.",
+                    "repetitions": "45 sec each side",
+                    "sets": 2,
+                    "rest": "30s",
+                    "video": "https://ware.do/activities/act_005/video/001.mp4",
+                    "thumbnail": "https://ware.do/activities/act_005/thumbnail/001.jpg"
                 }
             ],
             "days": [
@@ -36,7 +70,15 @@
                     "dayNumber": 1,
                     "activities": [
                         {
-                            "id": "act_123",
+                            "id": "act_001",
+                            "mandatory": true
+                        },
+                        {
+                            "id": "act_002",
+                            "mandatory": true
+                        },
+                        {
+                            "id": "act_003",
                             "mandatory": true
                         }
                     ]
@@ -45,47 +87,218 @@
                     "dayNumber": 2,
                     "activities": [
                         {
-                            "id": "act_123",
+                            "id": "act_001",
                             "mandatory": true
                         },
                         {
-                            "id": "act_124",
-                            "mandatory": false
+                            "id": "act_003",
+                            "mandatory": true
                         },
                         {
-                            "id": "act_125",
+                            "id": "act_005",
                             "mandatory": true
                         }
                     ]
                 },
                 {
-                    "dayNumber": 3,
+                    "dayNumber": 4,
                     "activities": [
                         {
-                            "id": "act_123",
+                            "id": "act_002",
+                            "mandatory": true
+                        },
+                        {
+                            "id": "act_004",
+                            "mandatory": true
+                        },
+                        {
+                            "id": "act_001",
+                            "mandatory": true
+                        }
+                    ]
+                },
+                {
+                    "dayNumber": 5,
+                    "activities": [
+                        {
+                            "id": "act_003",
+                            "mandatory": true
+                        },
+                        {
+                            "id": "act_005",
+                            "mandatory": true
+                        },
+                        {
+                            "id": "act_002",
+                            "mandatory": true
+                        }
+                    ]
+                },
+                {
+                    "dayNumber": 8,
+                    "activities": [
+                        {
+                            "id": "act_001",
+                            "mandatory": true
+                        },
+                        {
+                            "id": "act_003",
+                            "mandatory": true
+                        },
+                        {
+                            "id": "act_005",
+                            "mandatory": true
+                        }
+                    ]
+                },
+                {
+                    "dayNumber": 9,
+                    "activities": [
+                        {
+                            "id": "act_002",
+                            "mandatory": true
+                        },
+                        {
+                            "id": "act_001",
+                            "mandatory": true
+                        },
+                        {
+                            "id": "act_004",
+                            "mandatory": true
+                        }
+                    ]
+                },
+                {
+                    "dayNumber": 11,
+                    "activities": [
+                        {
+                            "id": "act_005",
+                            "mandatory": true
+                        },
+                        {
+                            "id": "act_004",
+                            "mandatory": true
+                        },
+                        {
+                            "id": "act_003",
+                            "mandatory": true
+                        }
+                    ]
+                },
+                {
+                    "dayNumber": 12,
+                    "activities": [
+                        {
+                            "id": "act_001",
+                            "mandatory": true
+                        },
+                        {
+                            "id": "act_002",
+                            "mandatory": true
+                        },
+                        {
+                            "id": "act_003",
+                            "mandatory": true
+                        }
+                    ]
+                },
+                {
+                    "dayNumber": 15,
+                    "activities": [
+                        {
+                            "id": "act_004",
+                            "mandatory": true
+                        },
+                        {
+                            "id": "act_005",
+                            "mandatory": true
+                        },
+                        {
+                            "id": "act_003",
+                            "mandatory": true
+                        }
+                    ]
+                },
+                {
+                    "dayNumber": 16,
+                    "activities": [
+                        {
+                            "id": "act_002",
+                            "mandatory": true
+                        },
+                        {
+                            "id": "act_004",
+                            "mandatory": true
+                        },
+                        {
+                            "id": "act_001",
                             "mandatory": true
                         }
                     ]
                 }
             ],
             "carryOver": "auto",
+            "equipment": ["yoga mat", "swimming gear"],
+            "places": ["home", "gym"],
             "tags": ["fitness"],
             "created_at": "2024-06-01T10:00:00Z",
             "updated_at": "2024-06-05T15:30:00Z"
         },
         "progress": {
+            "challengeId": "chl_001",
             "status": "active",
             "startedAt": "2025-10-01T12:00:00Z",
             "completedAt": null,
             "lastUpdatedAt": "2025-10-02T13:30:00Z",
-            "currentDay": 3,
+            "today": {
+                "dayNumber": 4,
+                "activities": [
+                    {
+                        "id": "act_002",
+                        "status": "completed",
+                        "completedAt": "2025-10-01T12:45:00Z"
+                    },
+                    {
+                        "id": "act_004",
+                        "status": "completed",
+                        "completedAt": "2025-10-01T12:45:00Z"
+                    },
+                    {
+                        "id": "act_001",
+                        "status": "completed",
+                        "completedAt": null
+                    },
+                    {
+                        "id": "act_001",
+                        "overdue": "2d",
+                        "status": "pending",
+                        "completedAt": null
+                    },
+                    {
+                        "id": "act_005",
+                        "overdue": "1d",
+                        "status": "pending",
+                        "completedAt": null
+                    }                    
+                ]
+            },
             "pastDays": [
                 {
                     "dayNumber": 1,
                     "activities": [
                         {
-                            "id": "act_123",
-                            "completed": true,
+                            "id": "act_001",
+                            "status": "delayed",
+                            "completedAt": null
+                        },
+                        {
+                            "id": "act_002",
+                            "status": "completed",
+                            "completedAt": "2025-10-01T12:45:00Z"
+                        },
+                        {
+                            "id": "act_003",
+                            "status": "completed",
                             "completedAt": "2025-10-01T12:45:00Z"
                         }
                     ]
@@ -94,47 +307,30 @@
                     "dayNumber": 2,
                     "activities": [
                         {
-                            "id": "act_123",
-                            "completed": true,
-                            "completedAt": "2025-10-02T13:00:00Z"
+                            "id": "act_001",
+                            "status": "completed",
+                            "completedAt": "2025-10-01T12:45:00Z"
                         },
                         {
-                            "id": "act_124",
-                            "completed": false,
-                            "completedAt": null
+                            "id": "act_003",
+                            "status": "completed",
+                            "completedAt": "2025-10-01T12:45:00Z"
                         },
                         {
-                            "id": "act_125",
-                            "completed": false,
+                            "id": "act_005",
+                            "status": "delayed",
                             "completedAt": null
                         }
                     ]
                 }
             ],
-            "nextDays": [
-                {
-                    "dayNumber": 3,
-                    "availableAt": "2025-11-04T10:00:00Z",
-                    "activities": [
-                        {
-                            "id": "act_123",
-                            "completed": false,
-                            "completedAt": null
-                        },
-                        {
-                            "id": "act_125",
-                            "completed": false,
-                            "completedAt": null,
-                            "carryOver": true
-                        }
-                    ]
-                }
-            ],
-            "remainingDays": 1,
-            "totalDays": 3,
-            "completedActivities": 2,
-            "totalActivities": 5,
-            "skippedActivities": 0
+            "nextDays": [],
+            "remainingDays": 7,
+            "totalDays": 10,
+            "completedActivities": 7,
+            "totalActivities": 30,
+            "skippedActivities": 0,
+            "delayedActivities": 2
         }
     }
 ]
