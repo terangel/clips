@@ -1,4 +1,4 @@
-import clips from '../../../../clips.js';
+import clips from '../../../clips.js';
 
 clips.define('today', {
 
@@ -7,7 +7,7 @@ clips.define('today', {
      */
     render: function(options) {
         return /*html*/`
-            <today-clip>
+            <div data-clip="today">
                 <div class="today-clip__head">
                     <div class="title">TODAY</div>
                     <div class="date">${new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase()}</div> 
@@ -15,7 +15,7 @@ clips.define('today', {
                 <div class="today-clip__body">
                     <!-- TODO: Representar esquéleto de carga -->
                 </div>
-            </today-clip>
+            </div>
         `;
     },
 

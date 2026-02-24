@@ -106,6 +106,12 @@ Clip.Position = Object.freeze({
     REPLACE:    'replace'
 });
 
+/**
+ * Nombre del fichero manejador por defecto.
+ * @type {string}
+ * @constant
+ */
+Clip.defaultHandlerName = 'handler';
 
 /**
  * Nombre de plantilla por defecto.
@@ -113,7 +119,6 @@ Clip.Position = Object.freeze({
  * @constant
  */
 Clip.prototype.defaultTemplateName = 'layout';
-// TODO: Porqué no definirla a nivel de Clip?
 
 /**
  * Nombre de hoja de estilos por defecto.
@@ -121,7 +126,6 @@ Clip.prototype.defaultTemplateName = 'layout';
  * @constant
  */
 Clip.prototype.defaultStylesName = 'styles';
-// TODO: Porqué no definirla a nivel de Clip?
 
 
 /* Prototype functions
@@ -137,8 +141,8 @@ Clip.prototype.create = function(options) {};
  * @param {Element} target Elemento especificado.
  * @param {Object} [options] Opciones de inclusión.
  * @param {Clip} [options.parentClip] Referencia al clip contenedor.
- * @param {Clip.Position} [options.position=Clip.Position.END] Posición de inclusión del clip con respecto al elemento (target) 
- * especificado. 
+ * @param {Clip.Position} [options.position=Clip.Position.END] Posición de inclusión del clip con respecto al elemento 
+ * (target) especificado. 
  */
 Clip.prototype.include = async function(target, options = {}) {
     // Se comprueba que el target sea un Element.
@@ -313,7 +317,7 @@ Clip.prototype.reload = async function(options) {
  */
 Clip.prototype.clear = function(options) {
     if (!this.root) {
-        throw new ClipError('No root element', ClipError.ROOT_REQUIRED);
+        throw new ClipError('No root element', { code: ClipError.ROOT_REQUIRED });
     }
     const root = this.render();
     this._clearAll();
@@ -599,20 +603,26 @@ const WS_RE = /^\s*$/;
 /* ------------------------------------------------------------------------------------------------------------------ */
 /**
  * Clip Error.
- * @param {string} message
- * @param {string} [code]
+ * @param {string} message Descripción del error.
+ * @param {{ code?: string, cause?: any }=} [options] Opciones adicionales.
  */
-function ClipError(message, code) {
-  this.name = 'ClipError';
-  this.message = message;
-  this.code = code;
-  Error.captureStackTrace ? Error.captureStackTrace(this, ClipError) : this.stack = (new Error(message)).stack;
+function ClipError(message, { code = null, cause } = {}) {
+    this.name = 'ClipError';
+    this.message = String(message);
+    this.code = code;
+
+    if (cause !== undefined) {
+        this.cause = cause;
+    }
+
+    Error.captureStackTrace ? Error.captureStackTrace(this, ClipError) : this.stack = (new Error(message)).stack;
 }
 ClipError.prototype = Object.create(Error.prototype);
 ClipError.prototype.constructor = ClipError;
 
 // Códigos de error.
 ClipError.ROOT_REQUIRED = 'root_required';
+ClipError.LOAD_FAILED   = 'load_failed';
 
 
 /* Template functions 
@@ -842,6 +852,7 @@ const _importClipStyles = async function(name, styles) {
  * Carga la hoja de estilos vinculada por nombre y localización con el clip especificado.
  * @param {typeof Clip} clipType Referencia al tipo de clip especificado.
  */
+// TODO: No se usa??
 const _loadStyles = async function(name) {
     const res = await fetch(`${_settings.basePath}/${name}.css`, {
         // TODO: Evita cache solo en debug?
@@ -851,6 +862,36 @@ const _loadStyles = async function(name) {
         throw new Error(`Unable to load styles: ${path} (${res.status})`);
     }
     return await res.text();
+};
+
+/**
+ * Carga el manejador del clip especificado por nombre.
+ * @param {string} name Nombre del clip especificado.
+ * @return {Clip} Manejador del clip especificado.
+ */
+const _loadHandler = async function(name) {
+    // TODO: Introducir aquí posibles mapeos para bundles.
+    const errors = [];
+    const url1 = `${_settings.basePath}/${name}.js`;
+    try {
+        await import(url1);
+        return;
+    } catch (err) {
+        errors.push(err);
+    }
+    const url2 = `${_settings.basePath}/${name}/${Clip.defaultHandlerName}.js`;
+    try {
+        await import(url2);
+        return;
+    } catch (err) {
+        errors.push(err);
+    }
+    if (errors.length > 0) {
+        throw new ClipError(`Clip "${name}" could not be loaded from ${url1}/${url2}.`, {
+            code: ClipError.LOAD_FAILED,
+            cause: errors.length === 1 ? errors[0] : errors
+        });
+    }
 };
 
 
@@ -993,18 +1034,14 @@ const clips = {
             throw new TypeError('Invalid clip name: non-empty string required.');
         }
         if (!_handlers[name]) {
-            const url = `${_settings.basePath}/${name}/handler.js`;
-            try {
-                await import(url);
-            } catch (err) {
-                throw new ReferenceError(`Clip "${name}" could not be loaded from ${url}.`, {
-                    cause: err
-                });
-            }
+            await _loadHandler(name);
         }
         const handler = _handlers[name];
         if (!handler) {
-            throw new ReferenceError(`Clip "${name}" is not defined.`);
+            throw new ClipError(`Clip "${name}" is not defined.`, {
+                code: ClipError.LOAD_FAILED,
+                cause: errors.length === 1 ? errors[0] : errors
+            });
         }
         return new handler(options);
     },

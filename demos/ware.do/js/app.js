@@ -8,10 +8,13 @@ const app = {
 
     start: async function() {
         console.log('Starting app...');
-        const page = document.getElementById('page');
-        const homeClip = await clips.create('home');
-        homeClip.include(page);
-        // Alternativa: clips.include('home', page, {});
+
+        // Se incluye el clip "home":
+        clips.include('home', document.getElementById('page'));
+
+        // Alternativa: create/include
+        // const homeClip = await clips.create('home');
+        // homeClip.include(page);
     }
 
 };
