@@ -873,6 +873,7 @@ const _loadHandler = async function(name) {
     // TODO: Introducir aquí posibles mapeos para bundles.
     const errors = [];
     const url1 = `${_settings.basePath}/${name}.js`;
+    // TODO: Evitemos los errores cuando el recurso no existe haciendo un petición previa por HEAD.
     try {
         await import(url1);
         return;
