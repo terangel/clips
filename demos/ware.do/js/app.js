@@ -4,6 +4,7 @@ import clips from '../../../clips.js';
  * Ajustes de configuración.
  */
 clips.setup({
+    debug: true,
     basePath: new URL('../clips', import.meta.url)
 });
 
@@ -28,13 +29,17 @@ const app = {
     start: async function() {
         console.log('Starting app...');
 
-        // Se incluye e inicializa el "viewport".
-        this.viewport = await clips.include('viewport', document.getElementById('app'), {
-            routes
-        });
+        // await clips.load('home');
+        const homeView = await clips.create('home', {});
+        console.log(`home: ${homeView}`);
 
-        // Se carga la ruta inicial.
-        this.viewport.open('/');
+        // Se incluye e inicializa el "viewport".
+        // this.viewport = await clips.include('viewport', document.getElementById('app'), {
+        //     routes
+        // });
+
+        // // Se carga la ruta inicial.
+        // this.viewport.open('/');
     }
 
 };

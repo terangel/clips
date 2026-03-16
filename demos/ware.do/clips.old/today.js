@@ -5,7 +5,7 @@ clips.define('today', {
     /**
      * @see Clip#render 
      */
-    render: function(options) {
+    render: function(ctx, options) {
         return /*html*/`
             <div data-clip="today">
                 <div class="today-clip__head">
