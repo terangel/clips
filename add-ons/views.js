@@ -9,7 +9,14 @@ clips.define('view', {
     /** @see Clip#create */
     create: function(options) {
         // ...
-    }
+    },
+
+    /** @type {string} */
+    styles: /*css*/`
+        [data-clip="view"] {
+            display: block;
+        }
+    `
 
 });
 
@@ -30,13 +37,6 @@ clips.define('viewport', {
 
     /** @type {string} */
     extends: 'view',
-
-    /** @type {string} */
-    styles: /*css*/`
-        [data-clip="viewport"] {
-            display: block;
-        }
-    `,
 
     /** @see Clip#create */
     create: function(options) {
@@ -70,7 +70,14 @@ clips.define('viewport', {
             throw new Error(`Route not found: ${path}`);
         }
         return clips.include(route.view, this.root, { parentClip: this, ...options });
-    }
+    },
+
+    /** @type {string} */
+    styles: /*css*/`
+        [data-clip="viewport"] {
+            display: block;
+        }
+    `
 
 });
 
