@@ -41,24 +41,26 @@ clips.define('today', {
     }
     
 }, /*css*/`
-    today-clip {
+    [data-clip="today"] {
         display: block;
         padding: 16px;
-    }
 
-    .today-clip__head {
-        margin-bottom: 16px;
+        > .head {
+            margin-bottom: 16px;
 
-        > .title {
-            color: #ff0;
-            font-size: 18px;
-            font-weight: bold;
+            > .title {
+                color: #ff0;
+                font-size: 18px;
+                font-weight: bold;
+            }
+
+            > .date {
+                color: #fffa;
+                font-size: 14px;            
+            }
         }
 
-        > .date {
-            color: #fffa;
-            font-size: 14px;            
-        }
+        > .body {}
     }
 
 `);
