@@ -1,4 +1,5 @@
 import clips from '../../../clips.js';
+import '../../../add-ons/views.js';
 
 /**
  * Ajustes de configuración.

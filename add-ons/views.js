@@ -1,5 +1,5 @@
-/* Views
- * ================================================================================================================== */
+import clips from '../clips.js';
+
 /**
  * Tipo de clip base para la definición de vistas que se pueden abrir dentro de un viewport.
  * @class ViewClip
@@ -26,7 +26,17 @@ clips.define('view', {
  * @class ViewportClip
  * @extends ViewClip
  */
-clips.define('viewport', 'view', {
+clips.define('viewport', {
+
+    /** @type {string} */
+    extends: 'view',
+
+    /** @type {string} */
+    styles: /*css*/`
+        [data-clip="viewport"] {
+            display: block;
+        }
+    `,
 
     /** @see Clip#create */
     create: function(options) {
@@ -62,8 +72,6 @@ clips.define('viewport', 'view', {
         return clips.include(route.view, this.root, { parentClip: this, ...options });
     }
 
-}, /*css*/`
-    [data-clip="viewport"] {
-        display: block;
-    }
-`);
+});
+
+export default {};

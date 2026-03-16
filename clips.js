@@ -762,10 +762,26 @@ const _closestClip = function(el) {
 /**
  * Importa los estilos del clip especificado.
  * @param {string} name Nombre del clip.
+ * @param {string|function|HTMLStyleElement|CSSStyleSheet} styles Estilos del clip.
  */
-const _importClipStyles = async function(name) {
-    let styles;
-    if (!_settings.stylesBundled) {
+const _importClipStyles = async function(name, styles) {
+    // Los estilos se pueden definir como propiedad o como función.
+    if (typeof styles === 'function') {
+        styles = styles();
+    }
+    // Si se definen como HTMLStyleElement, se añaden directamente al head.
+    if (styles instanceof HTMLStyleElement) {
+        document.head.appendChild(styles);
+        return;
+    }
+    // Si se definen como CSSStyleSheet, se añaden a las hojas de estilo adoptadas.
+    if (styles instanceof CSSStyleSheet) {
+        document.adoptedStyleSheets = [...document.adoptedStyleSheets, styles];
+        return;
+    }
+    // Si el clip no define estilos en código y no están empaquetados, se intenta cargar la hoja de estilos por defecto 
+    // ubicada en la misma ubicación que el clip.
+    if (!styles && !_settings.stylesBundled) {
         // TODO: Más que un flag que nos indique si los estilos están empaquetados o no, lo que realmente necesitamos es 
         // una definición de bundles con la especificación de nombres o patrones de clips incluidos en cada bundle, de 
         // forma que podamos introducir aquí la lógica de carga adecuada.
@@ -852,11 +868,10 @@ const clips = {
     /**
      * Define un nuevo tipo de clip.
      * @param {string} name Nombre del clip (único).
-     * @param {string|Object} [base] Nombre del clip base o prototipo del nuevo clip.
      * @param {Object} proto Prototipo del clip.
      * @return {new (options: ClipOptions) => Clip} Constructor del nuevo tipo de clip.
      */
-    define: function(name, base, proto) {
+    define: function(name, proto) {
         // Nombre del clip.
         if (typeof name !== 'string') {
             throw new TypeError('Invalid clip name: string required.');
@@ -869,31 +884,30 @@ const clips = {
             throw new RangeError(`Invalid clip name: too long (${name.length} > ${CLIP_NAME_MAX_LENGTH}).`);
         }
         if (!CLIP_NAME_RE.test(name)) {
-            throw new TypeError('Invalid clip name: expected path-like without leading/trailing slash, e.g. "home" or "user/profile".');
+            throw new TypeError('Invalid clip name: expected path-like string without leading or trailing slash.');
         }
         if (_handlers[name]) {
-            throw new Error(`Duplicate clip: ${name}`);
-        }
-
-        // Nombre del tipo de clip base.
-        if (typeof base === 'object' && base !== null) {
-            proto = base;
-            base = null;
-        } else if (typeof base === 'string') {
-            base = base.trim();
-            if (!base) {
-                throw new TypeError(`Invalid base name: empty string.`);
-            }
-            if (!_handlers[base]) {
-                throw new ReferenceError(`Base clip "${base}" not defined.`);
-            }
-        } else {
-            throw new TypeError('Invalid base: string or object required.');
+            throw new Error(`Clip "${name}" already defined.`);
         }
 
         // Objeto prototipo.
         if (proto === null || typeof proto !== 'object' || Object.getPrototypeOf(proto) !== Object.prototype) {
-            throw new TypeError('Invalid proto object: plain object required.');
+            throw new TypeError('Invalid prototype: plain object required.');
+        }
+
+        // Se comprueba la validez de la propiedad "extends" si se ha especificado.
+        let base = proto.extends;
+        if (base !== undefined) {
+            if (typeof base !== 'string') {
+                throw new TypeError(`Invalid extends: string required.`);
+            }
+            base = base.trim();
+            if (!base) {
+                throw new TypeError(`Invalid extends: empty string.`);
+            }
+            if (!_handlers[base]) {
+                throw new ReferenceError(`Invalid extends: clip "${base}" not defined.`);
+            }
         }
 
         // Se determina el constructor base si se ha especificado.
@@ -907,9 +921,14 @@ const clips = {
         // Se heredan los estáticos del constructor base.
         Object.setPrototypeOf(C, B);
 
+        // Se extraen los descriptores del prototipo, excluyendo "extends" y "styles".
+        const desc = Object.getOwnPropertyDescriptors(proto);
+        delete desc.extends;
+        delete desc.styles;
+
         // Se crea el prototipo del nuevo clip a partir del prototipo base.
         C.prototype = Object.create(B.prototype);
-        Object.defineProperties(C.prototype, Object.getOwnPropertyDescriptors(proto));
+        Object.defineProperties(C.prototype, desc);
 
         // Se define la propiedad "constructor" no enumerable.
         Object.defineProperty(C.prototype, 'constructor', {
@@ -941,7 +960,7 @@ const clips = {
             value: B
         });
         Object.defineProperty(C.prototype, 'basePrototype', {
-            get() { return this.constructor[BASE]?.prototype ?? null; },
+            get() { return this.constructor[BASE].prototype; },
             enumerable: false
         });
 
@@ -949,7 +968,7 @@ const clips = {
         _handlers[name] = C;
 
         // Se importan la hoja de estilos asociada.
-        _importClipStyles(name);
+        _importClipStyles(name, proto.styles);
         
         // Se devuelve el constructor del nuevo clip.
         return C;
