@@ -1044,7 +1044,8 @@ const clips = {
             include: function(name, options = {}) {
                 includes.push({ name, options });
                 out.push('<clip-slot></clip-slot>');
-            }
+            },
+            options
         };
 
         // Se ejecuta la plantilla con el contexto anterior.
