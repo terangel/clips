@@ -13,7 +13,7 @@ clips.define('view', {
 
     /** @type {string} */
     styles: /*css*/`
-        [data-clip="view"] {
+        .view {
             display: block;
         }
     `
@@ -72,10 +72,28 @@ clips.define('viewport', {
         return clips.include(route.view, this.root, { parentClip: this, ...options });
     },
 
-    /** @type {string} */
+    // -----------------------------------------------------------------------------------------------------------------
+    /** 
+     * Clip styles.
+     * @type {string}
+     */
     styles: /*css*/`
         [data-clip="viewport"] {
             display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+
+            > .view {
+                display: block;
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+            }
         }
     `
 

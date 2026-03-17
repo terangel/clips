@@ -1,10 +1,32 @@
+:root {
+    /* Light Theme (default) */
+    --bg: #f8f8f8;
+    --c1: #222;
+
+    /* Dark Theme */
+    --dark-bg: #222;
+    --dark-c1: #fff;
+}
+
+:root[data-theme='dark'] {
+    --bg: var(--dark-bg);
+    --c1: var(--dark-c1);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+        --bg: var(--dark-bg);
+        --c1: var(--dark-c1);
+    }
+}
+
 html, body {
     margin: 0;
     padding: 0;
     height: 100%;
     width: 100%;
-    color: #f2f2f2;
-    background-color: #333;
+    color: var(--c1);
+    background-color: var(--bg);
     overflow: hidden;
     font-family: Roboto, Arial, Helvetica, sans-serif;
 }

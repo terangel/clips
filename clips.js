@@ -1038,14 +1038,14 @@ const clips = {
          * }}
          */
         const locals = {
+            options, // TODO: Evaluar si definir solo "data" o que hacer?
             escape: esc.html,
             print: (...args) => out.push(...args.map(v => esc.html(String(v)))),
             printRaw: (...args) => out.push(...args.map(v => String(v))),
             include: function(name, options = {}) {
                 includes.push({ name, options });
                 out.push('<clip-slot></clip-slot>');
-            },
-            options
+            }
         };
 
         // Se ejecuta la plantilla con el contexto anterior.
