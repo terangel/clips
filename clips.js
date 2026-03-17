@@ -836,14 +836,13 @@ const _loadHandler = async function(name) {
     }
 
     // Se define el clip con el prototipo cargado.
-    const def = module && module.default;
-    if (def === null || typeof def !== 'object') {
+    const proto = module && module.default;
+    if (proto === null || typeof proto !== 'object') {
         throw new ClipError(`Clip "${name}" has no default export.`, {
             code: ClipError.NOT_DEFINED
         });
     }
-    const { extends: base, ...proto } = def;
-    clips.define(name, ...(base ? [base, proto] : [proto]));
+    clips.define(name, proto);
 };
 
 

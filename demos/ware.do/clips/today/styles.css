@@ -1,21 +1,23 @@
-[data-clip="today"] {
+.today-view {
     display: block;
     padding: 16px;
+}
 
-    > .head {
-        margin-bottom: 16px;
+.today-view__head {
+    margin-bottom: 16px;
+}
 
-        > .title {
-            color: #ff0;
-            font-size: 18px;
-            font-weight: bold;
-        }
+.today-view__head-title {
+    color: #ff0;
+    font-size: 18px;
+    font-weight: bold;
+}
 
-        > .date {
-            color: #fffa;
-            font-size: 14px;            
-        }
-    }
+.today-view__head-date {
+    color: #fffa;
+    font-size: 14px;         
+}
 
-    > .body {}
+.today-view__body {
+    display: block;
 }

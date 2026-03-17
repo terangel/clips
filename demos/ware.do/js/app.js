@@ -17,7 +17,7 @@ clips.setup({
 const routes = [
     {
         path: '/',
-        view: 'home'
+        view: 'today'
     }
 ];
 
