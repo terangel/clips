@@ -52,7 +52,7 @@ clips.define('viewport', {
     /** @see Clip#render */
     render: function(options) {
         return /*html*/`
-            <div data-clip="viewport"></div>
+            <div class="viewport"></div>
         `;
     },
 
@@ -78,7 +78,7 @@ clips.define('viewport', {
      * @type {string}
      */
     styles: /*css*/`
-        [data-clip="viewport"] {
+        .viewport {
             display: block;
             position: absolute;
             top: 0;
@@ -93,6 +93,7 @@ clips.define('viewport', {
                 left: 0;
                 width: 100%;
                 height: 100%;
+                box-sizing: border-box;
             }
         }
     `

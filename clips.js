@@ -842,7 +842,7 @@ const _loadHandler = async function(name) {
             code: ClipError.NOT_DEFINED
         });
     }
-    clips.define(name, proto);
+    return await clips.define(name, proto);
 };
 
 
@@ -870,7 +870,7 @@ const clips = {
      * @param {Object} proto Prototipo del clip.
      * @return {new (options: ClipOptions) => Clip} Constructor del nuevo tipo de clip.
      */
-    define: function(name, proto) {
+    define: async function(name, proto) {
         // Nombre del clip.
         if (typeof name !== 'string') {
             throw new TypeError('Invalid clip name: string required.');
@@ -905,7 +905,10 @@ const clips = {
                 throw new TypeError(`Invalid extends: empty string.`);
             }
             if (!_handlers[base]) {
-                throw new ReferenceError(`Invalid extends: clip "${base}" not defined.`);
+                await _loadHandler(base);
+                if (!_handlers[base]) {
+                    throw new ReferenceError(`Invalid extends: clip "${base}" not defined.`);
+                }
             }
         }
 

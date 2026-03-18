@@ -22,7 +22,7 @@ export default {
         const bodyEl = this.root.querySelector('.today-view__body');
         bodyEl.replaceChildren();
         for (const item of options.data) {
-            await clips.include('cards/activity', bodyEl, { data: item });
+            await clips.include('card/activity', bodyEl, { data: item });
         }
     }
     

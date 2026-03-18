@@ -1,0 +1,22 @@
+.activity-card {
+    display: block;
+    padding: 8px;
+    border-radius: 4px;
+    margin-bottom: 16px;
+    background-color: #0002;
+}
+
+.activity-card__top-bar {
+    display: flex;
+    justify-content: flex-start;
+    margin-bottom: 6px;
+}
+
+.activity-card__check {
+    width: 16px;
+    height: 16px;
+    background-color: #fff2;
+    /* border: 2px solid #0008; */
+    border-radius: 3px;
+    
+}
