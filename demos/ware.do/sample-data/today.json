@@ -1,18 +1,14 @@
 [
     {
         "status": "completed",
-        "description": "20 Sentadillas" 
+        "description": "Diseño preliminar de las fichas del Today."
+    },
+    {
+        "status": "completed",
+        "description": "Revisar maquetación y definición de colores." 
     },
     {
         "status": "pending",
-        "description": "Crear informe de gastos"
-    },
-    {
-        "status": "pending",
-        "description": "Llamar a Carlos"
-    },
-    {
-        "status": "pending",
-        "description": "Preparar diseño de las fichas del Today"
+        "description": "Evaluar la integración de Rollup y PostCSS en el proceso de construcción del proyecto."
     }
 ]

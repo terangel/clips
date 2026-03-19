@@ -1,22 +1,32 @@
 .activity-card {
-    display: block;
-    padding: 8px;
-    border-radius: 4px;
-    margin-bottom: 16px;
-    background-color: #0002;
-}
-
-.activity-card__top-bar {
     display: flex;
-    justify-content: flex-start;
-    margin-bottom: 6px;
+    flex-flow: row;
+    padding: 8px;
+    border-radius: var(--border-radius);
+    margin-bottom: 16px;
+    background-color: var(--bg2);
+    box-shadow: 4px 4px 0 0 #0002;
+    font-size: 16px;
+    line-height: 20px;
 }
 
 .activity-card__check {
+    flex: 0 0 auto;
     width: 16px;
     height: 16px;
-    background-color: #fff2;
-    /* border: 2px solid #0008; */
-    border-radius: 3px;
-    
+    margin: 2px 10px 2px 2px;
+    background-color: #fff4;
+    border-radius: var(--border-radius);
+    box-shadow: 2px 2px 0 0 #0003;
+}
+
+.activity-card__check--done {
+    background-image: url("data:image/svg+xml;utf8,\
+        <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'>\
+            <path d='M3.5 8.5l2.5 2.5l6.5-6.5' fill='none' stroke='%23222' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/>\
+        </svg>");
+}
+
+.activity-card__desc {
+    flex: 0 1 auto;
 }

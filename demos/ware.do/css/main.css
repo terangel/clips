@@ -1,22 +1,29 @@
 :root {
     /* Light Theme (default) */
-    --bg: #f8f8f8;
     --c1: #222;
+    --bg1: #f8f8f8;
+    --bg2: #e8e8e8;
 
     /* Dark Theme */
-    --dark-bg: #222;
     --dark-c1: #fff;
+    --dark-bg1: #242424;
+    --dark-bg2: #323232;
+
+    /* Common */
+    --border-radius: 4px;
 }
 
 :root[data-theme='dark'] {
-    --bg: var(--dark-bg);
     --c1: var(--dark-c1);
+    --bg1: var(--dark-bg1);
+    --bg2: var(--dark-bg2);
 }
 
 @media (prefers-color-scheme: dark) {
     :root:not([data-theme='light']) {
-        --bg: var(--dark-bg);
         --c1: var(--dark-c1);
+        --bg1: var(--dark-bg1);
+        --bg2: var(--dark-bg2);        
     }
 }
 
@@ -26,7 +33,8 @@ html, body {
     height: 100%;
     width: 100%;
     color: var(--c1);
-    background-color: var(--bg);
+    background-color: var(--bg1);
     overflow: hidden;
     font-family: Roboto, Arial, Helvetica, sans-serif;
+    font-size: 16px;
 }
