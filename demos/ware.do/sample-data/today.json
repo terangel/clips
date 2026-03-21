@@ -9,6 +9,10 @@
     },
     {
         "status": "pending",
+        "description": "Evaluar alternativas para ver como sacar este proyecto fuera mientras voy desarrollando clips."
+    },
+    {
+        "status": "pending",
         "description": "Evaluar la integración de Rollup y PostCSS en el proceso de construcción del proyecto."
     }
 ]
