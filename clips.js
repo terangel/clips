@@ -1117,10 +1117,5 @@ const clips = {
 };
 
 
-/* ================================================================================================================== */
-// Se expone globalmente como propiedad de window.
-if (typeof window !== 'undefined') {
-  window.clips = clips;
-}
-
+// Export
 export default clips;
