@@ -823,6 +823,13 @@ const _importClipStyles = async function(name, styles) {
  */
 const _loadHandler = async function(name) {
     // TODO: Introducir aquí posibles mapeos para bundles.
+    /*
+        _settings.bundles?.forEach(bundle => {
+            if (bundle.pattern.test(name)) {
+                loadBundle(bundle.path);
+            }
+        });
+    */
     // Se carga el prototipo del manejador.
     const path = `${_settings.basePath}/${name}/${Clip.defaultHandlerName}.js`;
     let module;
