@@ -1,5 +1,5 @@
 import clips from '../../../clips.js';
-import '../../../add-ons/views.js';
+// import '../../../add-ons/views.js';
 
 /**
  * Ajustes de configuración.
@@ -17,7 +17,7 @@ clips.setup({
 const routes = [
     {
         path: '/',
-        view: 'today'
+        view: 'home'
     }
 ];
 
@@ -31,17 +31,18 @@ const app = {
         console.log('Starting app...');
 
         // Se incluye e inicializa el "viewport".
-        this.viewport = await clips.include('viewport', document.getElementById('app'), {
-            routes
-        });
+        // this.viewport = await clips.include('viewport', document.getElementById('app'), {
+        //     routes
+        // });
 
-        // Se carga la ruta inicial.
-        this.viewport.open('/');
+        // // Se carga la ruta inicial.
+        // this.viewport.open('/');
+
+        const homeClip = await clips.create('home')
+        console.log(`homeClip: ${homeClip}`)
     }
 
 };
 
 // Llamada al inicio de la aplicación una vez cargado el DOM.
-document.addEventListener('DOMContentLoaded', () => {
-    app.start();
-});
+document.addEventListener('DOMContentLoaded', () => app.start());
