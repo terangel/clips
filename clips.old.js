@@ -557,7 +557,7 @@ Clip.prototype.dispatchEvent = Clip.prototype.fire = function(event, spread) {
     }
 
     // Se procesa el evento.
-    const bucket = this[EVENT_LISTENERS].get(event.type); 
+    const bucket = this[EVENT_LISTENERS].get(event.type);
     if (bucket) {
         Object.defineProperty(event, 'currentTarget', {
             value: this,

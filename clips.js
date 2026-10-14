@@ -1,14 +1,24 @@
-export class Clip extends EventTarget {
+
+/*
+ * Símbolo para la propiedad "eventListeners".
+ * @type {Symbol}
+ * @const
+ */
+const eventListenerSymbol = Symbol('eventListeners');
+
+
+export class Clip {
 
     static clipName
 
     #root = null
 
-    #parentClip = null
-
-    #childClips = new Set()
-
     #loadTime = 0
+
+    #attachRAF = 0
+
+    /** @type {Map<string, Set<function(ClipEvent): void>>} */
+    #listeners = new Map()
 
     constructor(options = {}) {
         super()
@@ -19,161 +29,503 @@ export class Clip extends EventTarget {
     }
 
     get parentClip() {
-        return this.#parentClip
+        for (let element = this.#root?.parentElement; element; element = element.parentElement) {
+            const clip = _elementClips.get(element)
+            if (clip) {
+                return clip
+            }
+        }
+        return null
     }
 
-    get childClips() {
-        return [...this.#childClips]
+    get childClips() {        
+        const clips = []
+        const collect = element => {
+            const clip = _elementClips.get(element)
+            if (clip) {
+                clips.push(clip)
+                return
+            }
+            for (const child of element.children) {
+                collect(child)
+            }
+        }
+        if (this.#root) {
+            for (const child of this.#root.children) {
+                collect(child)
+            }
+        }
+        return clips
     }
 
     get childCount() {
-        return this.#childClips.size
+        return this.childClips.length
     }
 
     appendClip(clip) {
-        if (clip.#parentClip) {
-            clip.#parentClip.removeClip(clip)
-        }
-        this.#childClips.add(clip)
-        clip.#parentClip = this
+        // if (clip.#parentClip) {
+        //     clip.#parentClip.removeClip(clip)
+        // }
+        // this.#childClips.add(clip)
+        // clip.#parentClip = this
     }
 
     removeClip(clip) {
-        if (this.#childClips.delete(clip)) {
-            clip.#parentClip = null
-        }
+        // if (this.#childClips.delete(clip)) {
+        //     clip.#parentClip = null
+        // }
     }
 
     /**
-     * TODO: Descripción del método.
-     * @param {HTMLElement} target 
-     * @param {*} [options]
-     * @param {clips.Position} [position=clips.Position.end]
-     * @returns {}
+     * Renderiza el clip cuando sea necesario y lo incluye en el elemento destino y posición especificada.
+     * @param {Element} target Elemento de destino.
+     * @param {object} [options] Opciones de renderización e inclusión.
+     * @param {Clip.Position} [options.position=Clip.Position.end] Posición de inclusión respecto al destino.
+     * @returns {Promise<Clip>} Instancia incluida.
      */
     async include(target, options = {}) {
-        // Se comprueba que el target sea de tipo Element.
+        // Se valida el destino.
         if (!target || target.nodeType !== Node.ELEMENT_NODE) {
             throw new TypeError('Invalid target: must be an Element.')
         }
-        // Si todavía no se ha generado el elemento raíz se llama al render.
-        if (!this.root) {
-            let out;
+
+        // Se valida la posición especificada antes de renderizar.
+        const position = options.position ?? Clip.Position.end
+        if (!Object.values(Clip.Position).includes(position)) {
+            throw new RangeError(`Invalid position: ${position}.`)
+        }
+
+        // Se comprueba las posiciones que requieren que el elemento destino esté contenido en otro elemento.
+        if ([Clip.Position.before, Clip.Position.after, Clip.Position.replace].includes(position) && 
+                !target.parentNode) {
+            throw new ClipError('The target element must have a parent for this inclusion position.')
+        }
+
+        // Se genera la raíz si todavía no existe.
+        if (!this.#root) {
+            let out
+
             try {
-                out = await this.render(options);
+                out = await this.render(options)
             } catch (err) {
-                throw new Error(`Unable to render clip "${this.clipName}": ${err.message}`, {
+                throw new ClipError(`Unable to render clip "${this.clipName}": ${err.message}`, {
                     cause: err
                 });
             }
+            if (out == null) {
+                throw new ClipError(`Missing render output for clip "${this.clipName}".`)
+            }
 
-            if (out?.nodeType === Node.ELEMENT_NODE) {
-                this.root = out;
+            let root
+
+            if (out.nodeType === Node.ELEMENT_NODE) {
+                root = out;
             } else {
-                let root;
                 if (typeof out === 'string') {
                     const template = document.createElement('template')
                     template.innerHTML = out
                     out = template.content
                 }
-                if (out?.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
-                    for (let n = out.firstChild; n; n = n.nextSibling) {
-                        if (n.nodeType === Node.ELEMENT_NODE) {
+
+                if (out.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+                    for (const node of out.childNodes) {
+                        if (node.nodeType === Node.ELEMENT_NODE) {
                             if (root) {
-                                throw new Error('Multiple root elements are not allowed.')
+                                throw new ClipError('Multiple root elements are not allowed.')
                             }
-                            root = n
-                        } else if (n.nodeType === Node.TEXT_NODE) {
-                            if (!WS_RE.test(n.data)) {
-                                throw new Error('Text outside the root element is not allowed.')
+                            root = node
+                        } else if (node.nodeType === Node.TEXT_NODE) {
+                            if (node.data.trim().length > 0) {
+                                throw new ClipError('Text outside the root element is not allowed.')
                             }
-                        } else if (n.nodeType !== Node.COMMENT_NODE) {
-                            throw new Error(`Unsupported node type (${n.nodeType}) outside the root element.`)
+                        } else if (node.nodeType !== Node.COMMENT_NODE) {
+                            throw new ClipError(`Unsupported node type (${node.nodeType}) outside the root element.`)
                         }
                     }
                 }
-                if (!root) {
-                    throw new Error(`Missing clip root. Ensure render() returns an Element, or a DocumentFragment/HTML string with a single-root Element.`)
-                }
-                this.root = root
             }
 
-            // Se guarda la vinculación del clip con su elemento raíz.
-            _elementClips.set(this.root, this)
+            if (!root) {
+                throw new ClipError(`Missing clip root: render() must return an Element, or a DocumentFragment/HTML string containing a single root element.`)
+            }
 
-            // Se guarda como propiedad del elemento para mejorar la visibilidad en depuración.
-            Object.defineProperty(this.root, '__clip', {
+            // Se comprueba que el mismo elemento no esté asociado a otro clip.
+            const existingClip = _elementClips.get(root)
+            if (existingClip && existingClip !== this) {
+                throw new ClipError('Clip root already belongs to another clip.')
+            }
+
+            // Se identifica y registra el elemento raíz del clip.
+            root.setAttribute('data-clip', this.clipName)
+            _elementClips.set(root, this)
+
+            // Se asigna el nodo raíz.
+            this.#root = root
+
+            // Referencia para depuración.
+            Object.defineProperty(root, '__clip', {
                 value: this,
-                writable: false,
                 configurable: true
             })
         }
 
-        // TODO: Añadir propiedades de estilo adicionales (options.style) y clases (options.class).
+        const root = this.#root
 
-        // TODO: Evaluar si incluir el parámetro hide o hidden para ocultar el elemento inicialmente.
-
-        // Se inserta el elemento en la posición especificada.
-        const position = options.position ?? Clip.Position.end
-        switch (position) {
-            case Clip.Position.after:
-                target.after(this._root)
-                break;
-            case Clip.Position.before:
-                target.before(this._root)
-            break;
-            case Clip.Position.replace:
-                if (this._root.contains(target)) {
-                    target.before(this._root)
-                    target.remove()
-                } else {
-                    target.replaceWith(this._root)
-                }
-                break;
-            case Clip.Position.start:
-                target.prepend(this._root)
-                break;
-            case Clip.Position.end:
-                target.append(this._root)
-                break;
-            default:
-                throw new RangeError(`Invalid position: ${position}.`)
+        // El destino puede haber cambiado durante el renderizado.
+        if ([Clip.Position.before, Clip.Position.after, Clip.Position.replace].includes(position) && 
+                !target.parentNode) {
+            throw new ClipError('The target element must have a parent for this inclusion position.')
         }
 
-        // Se añade al clip padre o contenedor. Si no se especifica, se busca en los elementos ascendientes.
-        (options.parentClip || _closestClip(this._root))?._appendClip(this)
+        // Se rechazan destinos dentro de la propia raíz.
+        if (root.contains(target)) {
+            throw new ClipError('The target element cannot be contained within the clip root.')
+        }
 
-        // Llamada al método ready.
-        this.ready(options)
+        // Se conserva la conexión anterior de la raíz.
+        const wasConnected = root.isConnected
 
-        // Se evalua si emitir el evento "attach".
-        // window.cancelAnimationFrame(this._attachReq)
-        // if (this.root.isConnected) {
-        //     const parent = this.root.parentNode
-        //     this._attachReq = window.requestAnimationFrame(() => {
-        //         if (!this.root || !this.root.isConnected || this.root.parentNode !== parent) {
-        //             return
-        //         }
-        //         _reflow(this.root)
-        //         this._attachReq = window.requestAnimationFrame(() => {
-        //             if (!this.root || !this.root.isConnected || this.root.parentNode !== parent) {
-        //                 return
-        //             }
-        //             this.fire('attach', true)
-        //             // TODO: Al propagar el evento habría que asegurarse que los clips contenidos siguen enganchados, si no 
-        //             // habría que evitar la emisión del evento. En principio si el elemento se ha desenganchado del elemento
-        //             // padre, la vinculación entre clips no debería existir tampoco de forma que el evento no se propagaría,
-        //             // pero es importante tenerlo en cuenta.
-        //         });
-        //     });
-        // }
+        // Se inserta la raíz.
+        switch (position) {
+            case Clip.Position.after:
+                target.after(root)
+                break
 
-        // Se inicia la carga de datos adicionales.
-        this.#load(options);
+            case Clip.Position.before:
+                target.before(root)
+                break
 
-        // Se devuelve la instancia del propio clip.
-        return this;
+            case Clip.Position.replace:
+                const connected = target.isConnected
+
+                if (target.contains(root)) {
+                    target.before(root)
+                    target.remove()
+                } else {
+                    target.replaceWith(root)
+                }
+
+                if (connected) {
+                    const detach = element => {
+                        for (const child of [...element.children]) {
+                            detach(child)
+                        }
+                        
+                        _elementClips.get(element)?.fire('detach')
+                    }
+
+                    detach(target)
+                }
+                break
+
+            case Clip.Position.start:
+                target.prepend(root)
+                break
+
+            case Clip.Position.end:
+                target.append(root)
+                break
+        }
+
+        // Se determina si emitir el evento "attach" o "detach" sobre el clip incluído y los clips contenidos.
+        if (root.isConnected !== wasConnected) {
+            const event = root.isConnected ? 'attach' : 'detach'
+            const eventClips = []
+            const collect = element => {
+                const clip = _elementClips.get(element)
+                const children = [...element.children]
+
+                if (clip && root.isConnected) {
+                    eventClips.add(clip);
+                }
+
+                for (const child of children) {
+                    collect(child)
+                }
+
+                if (clip && !root.isConnected) {
+                    eventClips.add(clip)
+                }
+            }
+
+            collect(root)
+
+            for (const clip of eventClips) {
+                clip.fire(event);
+            }
+        }
+
+        // Se ejecuta ready en cada inclusión.
+        await this.ready(options)
+
+        // Se inicia la carga adicional sin bloquear la inclusión.
+        try {
+            Promise.resolve(this.#load(options)).catch(cause => {
+                console.error(
+                    `Unable to load clip "${this.clipName}".`,
+                    cause
+                )
+            })
+        } catch (cause) {
+            console.error(
+                `Unable to load clip "${this.clipName}".`,
+                cause
+            )
+        }
+
+        return this
     }
+
+
+
+    /**
+     * Renderiza el clip si es necesario e inserta su raíz en el destino.
+     * @param {Element} target Elemento de destino.
+     * @param {object} [options] Opciones de inclusión y renderización.
+     * @param {Clip.Position} [options.position=Clip.Position.end]
+     * Posición de inclusión respecto al destino.
+     * @returns {Promise<this>} Instancia incluida.
+     */
+    async include2(target, options = {}) {
+        if (!target || target.nodeType !== Node.ELEMENT_NODE) {
+            throw new TypeError('Invalid target: an Element is required.')
+        }
+
+        const position = options.position ?? Clip.Position.end
+
+        if (!Object.values(Clip.Position).includes(position)) {
+            throw new RangeError(`Invalid position: ${position}.`)
+        }
+
+        const siblingPosition = (
+            position === Clip.Position.before ||
+            position === Clip.Position.after ||
+            position === Clip.Position.replace
+        )
+
+        if (siblingPosition && !target.parentNode) {
+            throw new ClipError(
+                'The target element must have a parent for this inclusion position.'
+            )
+        }
+
+        // Se genera y registra la raíz.
+        if (!this.#root) {
+            let out
+
+            try {
+                out = await this.render(options)
+            } catch (cause) {
+                throw new ClipError(
+                    `Unable to render clip "${this.clipName}".`,
+                    { cause }
+                )
+            }
+
+            if (out == null) {
+                throw new ClipError(
+                    `Missing render output for clip "${this.clipName}".`
+                )
+            }
+
+            let root
+
+            if (out.nodeType === Node.ELEMENT_NODE) {
+                root = out
+            } else {
+                if (typeof out === 'string') {
+                    const template = document.createElement('template')
+                    template.innerHTML = out
+                    out = template.content
+                }
+
+                if (out.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+                    for (const node of out.childNodes) {
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            if (root) {
+                                throw new ClipError(
+                                    'Multiple root elements are not allowed.'
+                                )
+                            }
+
+                            root = node
+                        } else if (node.nodeType === Node.TEXT_NODE) {
+                            if (node.data.trim().length > 0) {
+                                throw new ClipError(
+                                    'Text outside the root element is not allowed.'
+                                )
+                            }
+                        } else if (node.nodeType !== Node.COMMENT_NODE) {
+                            throw new ClipError(
+                                `Unsupported node type (${node.nodeType}) outside the root element.`
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (!root) {
+                throw new ClipError(
+                    'Missing clip root: render() must return an Element, or a DocumentFragment/HTML string containing a single root element.'
+                )
+            }
+
+            const existingClip = _elementClips.get(root)
+
+            if (existingClip && existingClip !== this) {
+                throw new ClipError(
+                    'Clip root already belongs to another clip.'
+                )
+            }
+
+            Object.defineProperty(root, '__clip', {
+                value: this,
+                configurable: true
+            })
+
+            root.setAttribute('data-clip', this.clipName)
+            _elementClips.set(root, this)
+            this.#root = root
+        }
+
+        const root = this.#root
+
+        // El destino puede haber cambiado durante el await de render().
+        if (siblingPosition && !target.parentNode) {
+            throw new ClipError(
+                'The target element must have a parent for this inclusion position.'
+            )
+        }
+
+        if (root.contains(target)) {
+            throw new ClipError(
+                'The target element cannot be contained within the clip root.'
+            )
+        }
+
+        // Se captura el estado de conexión de los clips afectados.
+        const states = new Map()
+        const previousPostorder = []
+
+        const collect = element => {
+            const clip = _elementClips.get(element)
+
+            if (clip) {
+                states.set(clip, {
+                    root: element,
+                    connected: element.isConnected
+                })
+            }
+
+            for (const child of element.children) {
+                collect(child)
+            }
+
+            if (clip) {
+                previousPostorder.push(clip)
+            }
+        }
+
+        // Al reemplazar un antecesor, una sola búsqueda abarca
+        // tanto los clips retirados como los que se conservan.
+        if (
+            position === Clip.Position.replace &&
+            target.contains(root)
+        ) {
+            collect(target)
+        } else {
+            collect(root)
+
+            if (position === Clip.Position.replace) {
+                collect(target)
+            }
+        }
+
+        // TODO: Aplicar options.style, options.class y options.hidden.
+
+        // Se inserta la raíz.
+        switch (position) {
+            case Clip.Position.after:
+                target.after(root)
+                break
+
+            case Clip.Position.before:
+                target.before(root)
+                break
+
+            case Clip.Position.replace:
+                if (target.contains(root)) {
+                    target.before(root)
+                    target.remove()
+                } else {
+                    target.replaceWith(root)
+                }
+                break
+
+            case Clip.Position.start:
+                target.prepend(root)
+                break
+
+            case Clip.Position.end:
+                target.append(root)
+                break
+        }
+
+        // Se calculan las desconexiones en el postorden anterior.
+        const detached = previousPostorder.filter(clip => {
+            const state = states.get(clip)
+            return state.connected && !state.root.isConnected
+        })
+
+        // Se calculan las conexiones en el preorden actual.
+        const attached = []
+
+        const collectAttached = element => {
+            const clip = _elementClips.get(element)
+            const state = clip && states.get(clip)
+
+            if (state && !state.connected && element.isConnected) {
+                attached.push(clip)
+            }
+
+            for (const child of element.children) {
+                collectAttached(child)
+            }
+        }
+
+        collectAttached(root)
+
+        // Cada clip recibe una notificación local.
+        for (const clip of detached) {
+            clip.fire('detach')
+        }
+
+        for (const clip of attached) {
+            clip.fire('attach')
+        }
+
+        await this.ready(options)
+
+        // La carga adicional no bloquea la inclusión.
+        try {
+            Promise.resolve(this.#load(options)).catch(cause => {
+                console.error(
+                    `Unable to load clip "${this.clipName}".`,
+                    cause
+                )
+            })
+        } catch (cause) {
+            console.error(
+                `Unable to load clip "${this.clipName}".`,
+                cause
+            )
+        }
+
+        return this
+    }
+
+
+
 
     async render(options = {}) {}
 
@@ -189,8 +541,141 @@ export class Clip extends EventTarget {
 
     async update(options = {}) {}
 
+    destroy() {
+        // TODO: Falta chicha!
+        delete this.#root.__clip
+        _elementClips.delete(this.#root)
+    }
+
     get clipName() {
         return this.constructor.clipName
+    }
+
+
+    // EVENTS ----------------------------------------------------------------------------------------------------------
+    /**
+     * Registra un listener.
+     * @param {string} type Tipo de evento.
+     * @param {function(ClipEvent): void} listener Listener.
+     * @param {object} [options] Reservado para futuras opciones.
+     * @returns {this}
+     */
+    on(type, listener, options = {}) {
+        if (typeof type !== 'string' || type.length === 0) {
+            throw new TypeError('Invalid event type: a non-empty string is required.')
+        }
+
+        if (typeof listener !== 'function') {
+            throw new TypeError('Invalid event listener: a function is required.')
+        }
+
+        let listeners = this.#listeners.get(type)
+
+        if (!listeners) {
+            listeners = new Set()
+            this.#listeners.set(type, listeners)
+        }
+
+        listeners.add(listener)
+
+        return this
+    }
+
+    /**
+     * Elimina un listener.
+     * @param {string} type Tipo de evento.
+     * @param {function(ClipEvent): void} listener Listener.
+     * @returns {this}
+     */
+    off(type, listener) {
+        if (typeof type !== 'string' || type.length === 0) {
+            throw new TypeError('Invalid event type: a non-empty string is required.')
+        }
+
+        if (typeof listener !== 'function') {
+            throw new TypeError('Invalid event listener: a function is required.')
+        }
+
+        const listeners = this.#listeners.get(type)
+
+        if (listeners) {
+            listeners.delete(listener)
+
+            if (listeners.size === 0) {
+                this.#listeners.delete(type)
+            }
+        }
+
+        return this
+    }
+
+    /**
+     * Emite un evento.
+     * @param {string | ClipEvent | {
+     *     type: string,
+     *     detail?: any
+     * }} event Evento especificado.
+     * @param {boolean | 'post'} [spread=false] Indica si propagar el evento a los clips descendientes: true en 
+     * preorden, "post" en postorden.
+     */
+    fire(event, { spread = false } = {}) {
+        // Se normaliza el evento.
+        if (!(event instanceof ClipEvent)) {
+            if (typeof event === 'string') {
+                event = new ClipEvent(event);
+            } else if (typeof event === 'object' && event !== null && typeof event.type === 'string') {
+                event = new ClipEvent(event.type, event.detail);
+            } else {
+                throw new TypeError('Invalid event: expected a type string, a ClipEvent, or an object with a string "type" property.');
+            }
+        }
+
+        // Se validan las opciones adicionales.
+        if (spread !== false && spread !== true && spread !== 'post') {
+            throw new TypeError(
+                'Invalid event spread: expected false, true, or "post".'
+            )
+        }
+
+        // Se conserva el primer emisor del evento.
+        const state = _eventStates.get(event)
+
+        if (state.target === null) {
+            state.target = this
+        }
+
+        // Se propaga en postorden.
+        if (spread === 'post') {
+            for (const clip of [...this._childClips]) {
+                clip.fire(event, { spread })
+            }
+        }
+
+        // Se ejecutan los listeners de este clip.
+        const listeners = this.#listeners.get(event.type);
+        if (listeners) {
+            const previousTarget = state.currentTarget
+            state.currentTarget = this
+
+            try {
+                for (const listener of [...listeners]) {
+                    try {
+                        listener.call(this, event);
+                    } catch (err) {
+                        console.error(`Error calling event listener "${event.type}" in clip "${this.clipName}":`, err);
+                    }
+                }
+            } finally {
+                state.currentTarget = previousTarget
+            }
+        }
+
+        // Se propaga en preorden.
+        if (spread === true) {
+            for (const clip of [...this._childClips]) {
+                clip.fire(event, { spread })
+            }
+        }
     }
 
 }
@@ -207,6 +692,57 @@ Clip.Position = Object.freeze({
     after:      'after',
     replace:    'replace'
 })
+
+
+
+/**
+ * Estado interno de los eventos.
+ * @type {WeakMap<ClipEvent, {
+ *     target: Clip | null,
+ *     currentTarget: Clip | null
+ * }>}
+ */
+const _eventStates = new WeakMap()
+
+
+class ClipEvent {
+
+    constructor(type, detail) {
+        if (typeof type !== 'string' || type.length === 0) {
+            throw new TypeError('Invalid event type: a non-empty string is required.')
+        }
+
+        _eventStates.set(this, {
+            target: null,
+            currentTarget: null
+        })
+
+        Object.defineProperties(this, {
+            type: {
+                value: type,
+                enumerable: true
+            },
+            detail: {
+                value: detail,
+                enumerable: true
+            },
+            target: {
+                get() {
+                    return _eventStates.get(this).target
+                },
+                enumerable: true
+            },
+            currentTarget: {
+                get() {
+                    return _eventStates.get(this).currentTarget
+                },
+                enumerable: true
+            }
+        })
+
+    }
+
+} 
 
 
 // =====================================================================================================================
@@ -356,11 +892,20 @@ async function _loadClip(name) {
  * @returns {Clip|null} Clip encontrado o null si no se encuentra.
  * @private
  */
-const _closestClip = function(el) {
+function _closestClip(el) {
     for (let n = el?.parentElement, c; n; n = n.parentElement) {
         if (c = _elementClips.get(n)) return c;
     }
     return null;
+}
+
+/**
+ * Fuerza el reflow del elemento especificado.
+ * @param {Element} el Elemento especificado.
+ * @private
+ */
+function _reflow(el) {
+    return el.getBoundingClientRect();
 }
 
 
