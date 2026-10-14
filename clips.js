@@ -20,9 +20,7 @@ export class Clip {
     /** @type {Map<string, Set<function(ClipEvent): void>>} */
     #listeners = new Map()
 
-    constructor(options = {}) {
-        super()
-    }
+    constructor(options = {}) {}
 
     get root() {
         return this.#root
@@ -228,29 +226,31 @@ export class Clip {
         }
 
         // Se determina si emitir el evento "attach" o "detach" sobre el clip incluído y los clips contenidos.
-        if (root.isConnected !== wasConnected) {
-            const event = root.isConnected ? 'attach' : 'detach'
-            const eventClips = []
+        const isConnected = root.isConnected
+        if (isConnected !== wasConnected) {
+            const recipients = []
+
             const collect = element => {
                 const clip = _elementClips.get(element)
-                const children = [...element.children]
 
-                if (clip && root.isConnected) {
-                    eventClips.add(clip);
+                if (clip && isConnected) {
+                    recipients.push(clip);
                 }
 
-                for (const child of children) {
+                for (const child of element.children) {
                     collect(child)
                 }
 
-                if (clip && !root.isConnected) {
-                    eventClips.add(clip)
+                if (clip && !isConnected) {
+                    recipients.push(clip)
                 }
             }
 
             collect(root)
 
-            for (const clip of eventClips) {
+            const event = root.isConnected ? 'attach' : 'detach'
+
+            for (const clip of recipients) {
                 clip.fire(event);
             }
         }

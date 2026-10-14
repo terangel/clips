@@ -40,6 +40,8 @@ const app = {
 
         const homeClip = await clips.create('home')
         console.log(`homeClip: ${homeClip}`)
+
+        homeClip.include(document.querySelector('#app'), {})
     }
 
 };
