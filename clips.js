@@ -877,7 +877,8 @@ async function _loadClip(name) {
             })
         }
 
-        return type
+        // Se registra y devuelve el tipo cargado.
+        return clips.register(name, type)
     }
 
     throw new ClipError(`All import attempts for clip "${name}" failed.`, {
@@ -940,12 +941,12 @@ const clips = {
     },
 
     /**
-     * Define un nuevo tipo de clip.
+     * Registra un nuevo tipo de clip.
      * @param {string} name Nombre del clip.
      * @param {typeof Clip} type Tipo o clase del clip.
      * @returns {Promise<typeof Clip>} Tipo o clase del clip definido.
      */
-    define: async function(name, type) {
+    register: async function(name, type) {
         // Se valida el nombre.
         if (typeof name !== 'string') {
             throw new TypeError('Invalid clip name: string required.')
