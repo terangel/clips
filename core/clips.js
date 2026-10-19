@@ -53,8 +53,9 @@ Clip.Position = Object.freeze({
 });
 
 
-/* PROTOTYPE
+/* PROTOTYPE PROPERTIES
  * ================================================================================================================== */
+
 Object.defineProperty(Clip.prototype, 'root', {
     get() {
         return _states.get(this).root;
@@ -115,6 +116,305 @@ Object.defineProperty(Clip.prototype, 'childCount', {
 
 })
 
+
+/* PROTOTYPE FUNCTIONS
+ * ================================================================================================================== */
+/**
+ * Initializes the clip instance. Called by the constructor.
+ * 
+ * @param {Object} options Initialization options.
+ */
+Clip.prototype.create = function(options) {};
+
+/**
+ * Includes the clip relative to the specified target element.
+ * 
+ * @param {Element} target Target element.
+ * @param {Object} [options] Additional options.
+ * @param {Clip.Position} [options.position=Clip.Position.end] Position relative to the target element.
+ */
+Clip.prototype.include = function(target, options) {
+    // Se valida el destino.
+    if (!target || target.nodeType !== Node.ELEMENT_NODE) {
+        throw new TypeError('Invalid target: must be an Element.')
+    }
+
+    // Se valida la posición especificada antes de renderizar.
+    const position = options.position ?? Clip.Position.end
+    if (!Object.values(Clip.Position).includes(position)) {
+        throw new RangeError(`Invalid position: ${position}.`)
+    }
+
+    // Se comprueba las posiciones que requieren que el elemento destino esté contenido en otro elemento.
+    if ([Clip.Position.before, Clip.Position.after, Clip.Position.replace].includes(position) && 
+            !target.parentNode) {
+        throw new ClipError('The target element must have a parent for this inclusion position.')
+    }
+
+    // Se genera la raíz si todavía no existe.
+    if (!this.#root) {
+        let out
+
+        try {
+            out = await this.render(options)
+        } catch (err) {
+            throw new ClipError(`Unable to render clip "${this.clipName}": ${err.message}`, {
+                cause: err
+            });
+        }
+        if (out == null) {
+            throw new ClipError(`Missing render output for clip "${this.clipName}".`)
+        }
+
+        let root
+
+        if (out.nodeType === Node.ELEMENT_NODE) {
+            root = out;
+        } else {
+            if (typeof out === 'string') {
+                const template = document.createElement('template')
+                template.innerHTML = out
+                out = template.content
+            }
+
+            if (out.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+                for (const node of out.childNodes) {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        if (root) {
+                            throw new ClipError('Multiple root elements are not allowed.')
+                        }
+                        root = node
+                    } else if (node.nodeType === Node.TEXT_NODE) {
+                        if (node.data.trim().length > 0) {
+                            throw new ClipError('Text outside the root element is not allowed.')
+                        }
+                    } else if (node.nodeType !== Node.COMMENT_NODE) {
+                        throw new ClipError(`Unsupported node type (${node.nodeType}) outside the root element.`)
+                    }
+                }
+            }
+        }
+
+        if (!root) {
+            throw new ClipError(`Missing clip root: render() must return an Element, or a DocumentFragment/HTML string containing a single root element.`)
+        }
+
+        // Se comprueba que el mismo elemento no esté asociado a otro clip.
+        const existingClip = _elementClips.get(root)
+        if (existingClip && existingClip !== this) {
+            throw new ClipError('Clip root already belongs to another clip.')
+        }
+
+        // Se identifica y registra el elemento raíz del clip.
+        root.setAttribute('data-clip', this.clipName)
+        _elementClips.set(root, this)
+
+        // Se asigna el nodo raíz.
+        this.#root = root
+
+        // Referencia para depuración.
+        Object.defineProperty(root, '__clip', {
+            value: this,
+            configurable: true
+        })
+    }
+
+    const root = this.#root
+
+    // El destino puede haber cambiado durante el renderizado.
+    if ([Clip.Position.before, Clip.Position.after, Clip.Position.replace].includes(position) && 
+            !target.parentNode) {
+        throw new ClipError('The target element must have a parent for this inclusion position.')
+    }
+
+    // Se rechazan destinos dentro de la propia raíz.
+    if (root.contains(target)) {
+        throw new ClipError('The target element cannot be contained within the clip root.')
+    }
+
+    // Se conserva la conexión anterior de la raíz.
+    const wasConnected = root.isConnected
+
+    // Se inserta la raíz.
+    switch (position) {
+        case Clip.Position.after:
+            target.after(root)
+            break
+
+        case Clip.Position.before:
+            target.before(root)
+            break
+
+        case Clip.Position.replace:
+            const connected = target.isConnected
+
+            if (target.contains(root)) {
+                target.before(root)
+                target.remove()
+            } else {
+                target.replaceWith(root)
+            }
+
+            if (connected) {
+                const detach = element => {
+                    for (const child of [...element.children]) {
+                        detach(child)
+                    }
+                    
+                    _elementClips.get(element)?.fire('detach')
+                }
+
+                detach(target)
+            }
+            break
+
+        case Clip.Position.start:
+            target.prepend(root)
+            break
+
+        case Clip.Position.end:
+            target.append(root)
+            break
+    }
+
+    // Se determina si emitir el evento "attach" o "detach" sobre el clip incluído y los clips contenidos.
+    const isConnected = root.isConnected
+    if (isConnected !== wasConnected) {
+        const recipients = []
+
+        const collect = element => {
+            const clip = _elementClips.get(element)
+
+            if (clip && isConnected) {
+                recipients.push(clip);
+            }
+
+            for (const child of element.children) {
+                collect(child)
+            }
+
+            if (clip && !isConnected) {
+                recipients.push(clip)
+            }
+        }
+
+        collect(root)
+
+        const event = root.isConnected ? 'attach' : 'detach'
+
+        for (const clip of recipients) {
+            clip.fire(event);
+        }
+    }
+
+    // Se ejecuta ready en cada inclusión.
+    await this.ready(options)
+
+    // Se inicia la carga adicional sin bloquear la inclusión.
+    try {
+        Promise.resolve(this.#load(options)).catch(cause => {
+            console.error(
+                `Unable to load clip "${this.clipName}".`,
+                cause
+            )
+        })
+    } catch (cause) {
+        console.error(
+            `Unable to load clip "${this.clipName}".`,
+            cause
+        )
+    }
+
+    return this
+}
+
+/**
+ * Renders the clip. 
+ * 
+ * @param {Object} [options] Additional rendering options.
+ * @returns {Promise<DocumentFragment|Element|string>} Returns a fragment, an element, or HTML code directly.
+ */
+Clip.prototype.render = function() {
+    return /*html*/`<div data-clip="${this.clipName}"></div>`
+}
+
+/**
+ * Initializes the generated content after rendering and adds the necessary event handlers.
+ * 
+ * @param {Object} [options] Additional options.
+ */
+Clip.prototype.ready = function(options) {};
+
+/**
+ * Loads additional data.
+ * 
+ * @param {Object} options Additional options.
+ */
+Clip.prototype.load = async function(options) {};
+
+/**
+ * Carga de datos (envoltorio). Llama a la carga, actualiza el tiempo de carga y llama a la actualización.
+ * 
+ * @param {Object} options Opciones adicionales.
+ * @private
+ */
+Clip.prototype._load = async function(options) {
+    // const data = await this.load(options);
+    // this._loadTime = Date.now();
+    // return this.update(data === undefined ? options : { ...options, data });
+};
+
+/**
+ * Updates the content of the clip after loading additional data.
+ * 
+ * @param {Object} options Additional options.
+ */
+Clip.prototype.update = async function(options) {};
+
+/**
+ * Initiates the reload of the clip.
+ * 
+ * @param {Object} options Additional options.
+ */
+Clip.prototype.reload = async function(options) {
+    // ...
+}
+
+/**
+ * Limpia el contenido del clip y llama de nuevo a la renderización.
+ * @param {Object} options Opciones adicionales.
+ */
+Clip.prototype.clear = function(options) {
+    // ... 
+}
+
+/**
+ * Shows or hides the clip.
+ * 
+ * @param {boolean} [show] Whether to show the clip. If omitted, toggles its visibility.
+ */
+Clip.prototype.toggle = function(show) {}
+
+/**
+ * Checks whether the clip is visible.
+ * 
+ * @returns {boolean} Whether the clip is visible.
+ */
+Clip.prototype.isVisible = function() {}
+
+/**
+ * Removes the clip from the DOM.
+ */
+Clip.prototype.remove = function() {
+    // ...
+}
+
+/**
+ * Destroys the clip and releases its resources.
+ */
+Clip.prototype.destroy = function() {
+    // ...
+}
 
 
 /* EVENTS
@@ -252,7 +552,7 @@ Object.defineProperties(Clip.prototype, {
      * for postorder.
      * @returns {Clip} This clip.
      */
-    fire: {        
+    fire: {
         value: function(event, { spread = false } = {}) {
             // Se normaliza el evento.
             if (!(event instanceof ClipEvent)) {
