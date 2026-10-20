@@ -5,7 +5,8 @@
  * 
  * @private
  * @type {WeakMap<Clip, {
- *     root: HTMLElement|null
+ *     root: HTMLElement|null,
+ *     loadTime: 0,
  *     listeners: Map
  * }>}
  */
@@ -116,6 +117,13 @@ Object.defineProperty(Clip.prototype, 'childCount', {
 
 })
 
+Object.defineProperty(Clip.prototype, 'loadTime', {
+    get() {
+        return _states.get(this).loadTime;
+    },
+    enumerable: true
+})
+
 
 /* PROTOTYPE FUNCTIONS
  * ================================================================================================================== */
@@ -132,8 +140,23 @@ Clip.prototype.create = function(options) {};
  * @param {Element} target Target element.
  * @param {Object} [options] Additional options.
  * @param {Clip.Position} [options.position=Clip.Position.end] Position relative to the target element.
+ * @returns {Promise<Clip>} Resolves to this clip after ready() completes.
  */
-Clip.prototype.include = function(target, options) {
+Clip.prototype.include = async function(target, options = {}) {
+
+    // options = { ...options };
+
+    // const state = _states.get(this);
+    // const previous = state.pending ?? Promise.resolve();
+
+    // return await (state.pending = previous
+    //     .catch(() => {})
+    //     .then(() => _include.call(this, target, options)));
+
+
+
+    options = { ...options }
+
     // Se valida el destino.
     if (!target || target.nodeType !== Node.ELEMENT_NODE) {
         throw new TypeError('Invalid target: must be an Element.')
@@ -151,10 +174,38 @@ Clip.prototype.include = function(target, options) {
         throw new ClipError('The target element must have a parent for this inclusion position.')
     }
 
-    // Se genera la raíz si todavía no existe.
-    if (!this.#root) {
-        let out
+    // Se recupera el estado del clip.
+    const state = _states.get(this)
 
+
+    if (state.includePromise) {
+        await state.includePromise
+    }
+
+
+    let resolve
+
+    state.includePromise = new Promise(res => res = resolve)
+
+
+    state.pending = (async () => {
+
+
+
+
+    })()
+
+
+
+
+
+
+
+    // Se genera la raíz si todavía no existe.    
+    let root = state.root
+    if (!root) {
+        let out
+        
         try {
             out = await this.render(options)
         } catch (err) {
@@ -165,8 +216,6 @@ Clip.prototype.include = function(target, options) {
         if (out == null) {
             throw new ClipError(`Missing render output for clip "${this.clipName}".`)
         }
-
-        let root
 
         if (out.nodeType === Node.ELEMENT_NODE) {
             root = out;
@@ -200,17 +249,17 @@ Clip.prototype.include = function(target, options) {
         }
 
         // Se comprueba que el mismo elemento no esté asociado a otro clip.
-        const existingClip = _elementClips.get(root)
-        if (existingClip && existingClip !== this) {
+        const c = _roots.get(root)
+        if (c && c !== this) {
             throw new ClipError('Clip root already belongs to another clip.')
         }
 
         // Se identifica y registra el elemento raíz del clip.
         root.setAttribute('data-clip', this.clipName)
-        _elementClips.set(root, this)
+        _roots.set(root, this)
 
-        // Se asigna el nodo raíz.
-        this.#root = root
+        // Se guarda el nodo raíz.
+        state.root = root
 
         // Referencia para depuración.
         Object.defineProperty(root, '__clip', {
@@ -218,8 +267,6 @@ Clip.prototype.include = function(target, options) {
             configurable: true
         })
     }
-
-    const root = this.#root
 
     // El destino puede haber cambiado durante el renderizado.
     if ([Clip.Position.before, Clip.Position.after, Clip.Position.replace].includes(position) && 
@@ -232,7 +279,7 @@ Clip.prototype.include = function(target, options) {
         throw new ClipError('The target element cannot be contained within the clip root.')
     }
 
-    // Se conserva la conexión anterior de la raíz.
+    // Se guarda si la raíz estaba conectada antes de incluirla en el destino.
     const wasConnected = root.isConnected
 
     // Se inserta la raíz.
@@ -256,15 +303,22 @@ Clip.prototype.include = function(target, options) {
             }
 
             if (connected) {
-                const detach = element => {
+                const recipients = []
+
+                const collect = element => {
                     for (const child of [...element.children]) {
-                        detach(child)
+                        collect(child)
                     }
                     
-                    _elementClips.get(element)?.fire('detach')
+                    const clip = _roots.get(element)
+                    if (clip) {
+                        recipients.push(clip)
+                    }
                 }
 
-                detach(target)
+                for (const clip of recipients) {
+                    clip.fire('detach')
+                }
             }
             break
 
@@ -283,7 +337,7 @@ Clip.prototype.include = function(target, options) {
         const recipients = []
 
         const collect = element => {
-            const clip = _elementClips.get(element)
+            const clip = _roots.get(element)
 
             if (clip && isConnected) {
                 recipients.push(clip);
@@ -308,25 +362,29 @@ Clip.prototype.include = function(target, options) {
     }
 
     // Se ejecuta ready en cada inclusión.
+    // TODO: try/catch...
     await this.ready(options)
 
-    // Se inicia la carga adicional sin bloquear la inclusión.
-    try {
-        Promise.resolve(this.#load(options)).catch(cause => {
-            console.error(
-                `Unable to load clip "${this.clipName}".`,
-                cause
-            )
-        })
-    } catch (cause) {
-        console.error(
-            `Unable to load clip "${this.clipName}".`,
-            cause
-        )
-    }
+    // Se inicia la carga de datos adicionales.
+    (async () => {
+        try {
+            options.data = await this.load(options)
+            state.loadTime = Date.now()            
+        } catch (err) {
+            console.error(`Unable to load clip "${this.clipName}".`, err)
+        }
 
+        try {
+            await this.update(options)
+        } catch (err) {
+            console.error(`Unable to update clip "${this.clipName}".`, err)
+        }
+    })();
+    
+    // Se devuelve la propia instancia
     return this
 }
+
 
 /**
  * Renders the clip. 
@@ -335,6 +393,7 @@ Clip.prototype.include = function(target, options) {
  * @returns {Promise<DocumentFragment|Element|string>} Returns a fragment, an element, or HTML code directly.
  */
 Clip.prototype.render = function() {
+    // TODO: ¿Intentamos renderizar la plantilla por defecto?
     return /*html*/`<div data-clip="${this.clipName}"></div>`
 }
 
