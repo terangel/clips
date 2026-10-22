@@ -6,6 +6,7 @@
  * @private
  * @type {WeakMap<Clip, {
  *     root: HTMLElement|null,
+ *     loadStarted: false
  *     loadTime: 0,
  *     listeners: Map
  * }>}
@@ -143,20 +144,23 @@ Clip.prototype.create = function(options) {};
  * @returns {Promise<Clip>} Resolves to this clip after ready() completes.
  */
 Clip.prototype.include = async function(target, options = {}) {
-
-    // options = { ...options };
-
-    // const state = _states.get(this);
-    // const previous = state.pending ?? Promise.resolve();
-
-    // return await (state.pending = previous
-    //     .catch(() => {})
-    //     .then(() => _include.call(this, target, options)));
-
-
-
     options = { ...options }
 
+    const state = _states.get(this);
+    const previous = state.includePromise ?? Promise.resolve();
+
+    return await (state.includePromise = previous.catch(() => {}).then(() => 
+        _include.call(this, target, options)));
+}
+
+/**
+ * Performs the clip inclusion.
+ *
+ * @private
+ * @this {Clip}
+ * @see Clip#include
+ */
+async function _include(target, options = {}) {
     // Se valida el destino.
     if (!target || target.nodeType !== Node.ELEMENT_NODE) {
         throw new TypeError('Invalid target: must be an Element.')
@@ -169,47 +173,22 @@ Clip.prototype.include = async function(target, options = {}) {
     }
 
     // Se comprueba las posiciones que requieren que el elemento destino esté contenido en otro elemento.
-    if ([Clip.Position.before, Clip.Position.after, Clip.Position.replace].includes(position) && 
-            !target.parentNode) {
+    if ([Clip.Position.before, Clip.Position.after, Clip.Position.replace].includes(position) && !target.parentNode) {
         throw new ClipError('The target element must have a parent for this inclusion position.')
     }
 
     // Se recupera el estado del clip.
     const state = _states.get(this)
 
-
-    if (state.includePromise) {
-        await state.includePromise
-    }
-
-
-    let resolve
-
-    state.includePromise = new Promise(res => res = resolve)
-
-
-    state.pending = (async () => {
-
-
-
-
-    })()
-
-
-
-
-
-
-
     // Se genera la raíz si todavía no existe.    
-    let root = state.root
+    let root = state.root, fresh = false
     if (!root) {
         let out
         
         try {
             out = await this.render(options)
         } catch (err) {
-            throw new ClipError(`Unable to render clip "${this.clipName}": ${err.message}`, {
+            throw new ClipError(`Unable to render clip "${this.clipName}".`, {
                 cause: err
             });
         }
@@ -245,7 +224,8 @@ Clip.prototype.include = async function(target, options = {}) {
         }
 
         if (!root) {
-            throw new ClipError(`Missing clip root: render() must return an Element, or a DocumentFragment/HTML string containing a single root element.`)
+            throw new ClipError('Missing clip root: render() must return an Element, ' + 
+                'or a DocumentFragment/HTML string containing a single root element.')
         }
 
         // Se comprueba que el mismo elemento no esté asociado a otro clip.
@@ -254,23 +234,15 @@ Clip.prototype.include = async function(target, options = {}) {
             throw new ClipError('Clip root already belongs to another clip.')
         }
 
-        // Se identifica y registra el elemento raíz del clip.
+        // Se identifica el elemento raíz del clip.
         root.setAttribute('data-clip', this.clipName)
-        _roots.set(root, this)
 
-        // Se guarda el nodo raíz.
-        state.root = root
-
-        // Referencia para depuración.
-        Object.defineProperty(root, '__clip', {
-            value: this,
-            configurable: true
-        })
+        // Se indica que la raíz es de reciente creación.
+        fresh = true
     }
 
     // El destino puede haber cambiado durante el renderizado.
-    if ([Clip.Position.before, Clip.Position.after, Clip.Position.replace].includes(position) && 
-            !target.parentNode) {
+    if ([Clip.Position.before, Clip.Position.after, Clip.Position.replace].includes(position) && !target.parentNode) {
         throw new ClipError('The target element must have a parent for this inclusion position.')
     }
 
@@ -279,8 +251,27 @@ Clip.prototype.include = async function(target, options = {}) {
         throw new ClipError('The target element cannot be contained within the clip root.')
     }
 
+    if (fresh) {
+        // Se vincula el elemento raíz con la instancia del clip. 
+        _roots.set(root, this)
+
+        // Se guarda el elemento raíz en el estado interno de la instancia.
+        state.root = root
+
+        // Referencia para depuración.
+        Object.defineProperty(root, '__clip', {
+            value: this,
+            configurable: true
+        })
+    } 
+
     // Se guarda si la raíz estaba conectada antes de incluirla en el destino.
     const wasConnected = root.isConnected
+
+    // Receptores de eventos.
+    const eventTargets = {
+        detach: [], attach: []        
+    }
 
     // Se inserta la raíz.
     switch (position) {
@@ -303,8 +294,6 @@ Clip.prototype.include = async function(target, options = {}) {
             }
 
             if (connected) {
-                const recipients = []
-
                 const collect = element => {
                     for (const child of [...element.children]) {
                         collect(child)
@@ -312,13 +301,11 @@ Clip.prototype.include = async function(target, options = {}) {
                     
                     const clip = _roots.get(element)
                     if (clip) {
-                        recipients.push(clip)
+                        eventTargets.detach.push(clip)
                     }
                 }
 
-                for (const clip of recipients) {
-                    clip.fire('detach')
-                }
+                collect(target);
             }
             break
 
@@ -334,13 +321,11 @@ Clip.prototype.include = async function(target, options = {}) {
     // Se determina si emitir el evento "attach" o "detach" sobre el clip incluído y los clips contenidos.
     const isConnected = root.isConnected
     if (isConnected !== wasConnected) {
-        const recipients = []
-
         const collect = element => {
             const clip = _roots.get(element)
 
             if (clip && isConnected) {
-                recipients.push(clip);
+                eventTargets.attach.push(clip);
             }
 
             for (const child of element.children) {
@@ -348,43 +333,53 @@ Clip.prototype.include = async function(target, options = {}) {
             }
 
             if (clip && !isConnected) {
-                recipients.push(clip)
+                eventTargets.detach.push(clip);
             }
         }
 
         collect(root)
-
-        const event = root.isConnected ? 'attach' : 'detach'
-
-        for (const clip of recipients) {
-            clip.fire(event);
-        }
     }
 
-    // Se ejecuta ready en cada inclusión.
-    // TODO: try/catch...
-    await this.ready(options)
+    // Se emiten los eventos correspondientes.
+    for (const event of Object.keys(eventTargets)) {
+        for (const clip of eventTargets[event]) {
+            // TODO: Evaluar que pasa si la propagación del evento falla.
+            clip.fire(event);
+        }    
+    }
+
+    // Se llama al ready en cada inclusión.
+    try {
+        await this.ready({ ...options, fresh, reload: false })
+    } catch (err) {
+        throw new ClipError(`Unable to ready clip "${this.clipName}".`, { cause: err })
+    }
 
     // Se inicia la carga de datos adicionales.
-    (async () => {
-        try {
-            options.data = await this.load(options)
-            state.loadTime = Date.now()            
-        } catch (err) {
-            console.error(`Unable to load clip "${this.clipName}".`, err)
-        }
+    if (!state.loadStarted) {
+        state.loadStarted = true;
 
-        try {
-            await this.update(options)
-        } catch (err) {
-            console.error(`Unable to update clip "${this.clipName}".`, err)
-        }
-    })();
+        void (async () => {
+            try {
+                options.data = await this.load(options)
+                state.loadTime = Date.now()            
+            } catch (err) {
+                console.error(`Unable to load clip "${this.clipName}".`, err)
+            }
+
+            // TODO: Evaluar que hacer si el load falla.
+
+            try {
+                await this.update(options)
+            } catch (err) {
+                console.error(`Unable to update clip "${this.clipName}".`, err)
+            }
+        })();
+    }
     
-    // Se devuelve la propia instancia
+    // Se devuelve la propia instancia.
     return this
 }
-
 
 /**
  * Renders the clip. 
@@ -393,7 +388,7 @@ Clip.prototype.include = async function(target, options = {}) {
  * @returns {Promise<DocumentFragment|Element|string>} Returns a fragment, an element, or HTML code directly.
  */
 Clip.prototype.render = function() {
-    // TODO: ¿Intentamos renderizar la plantilla por defecto?
+    // TODO: Creo que la implementación por defecto debería intentar renderizar la plantilla por defecto.
     return /*html*/`<div data-clip="${this.clipName}"></div>`
 }
 
@@ -401,8 +396,9 @@ Clip.prototype.render = function() {
  * Initializes the generated content after rendering and adds the necessary event handlers.
  * 
  * @param {Object} [options] Additional options.
+ * @param {boolean} [options.fresh=false] Whether the root element was newly created.
  */
-Clip.prototype.ready = function(options) {};
+Clip.prototype.ready = async function(options) {};
 
 /**
  * Loads additional data.
